@@ -1014,7 +1014,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       },
                     ),
                     _buildFeatureAction(Icons.online_prediction_rounded, 'وصل عن بعد', Colors.indigo),
-                  ], crossAxisCount: 2),
+                  ], crossAxisCount: 3),
 
                   const SizedBox(height: 20),
 
@@ -1126,9 +1126,35 @@ class _HomeScreenState extends State<HomeScreen> {
                         }
                       },
                     ),
-                    _buildFeatureAction(Icons.list_alt_rounded, 'إستعلام وصل', Colors.blueGrey),
-                    _buildFeatureAction(Icons.history_rounded, 'إستعلام فصل', Colors.blueGrey),
-                    _buildFeatureAction(Icons.assignment_outlined, 'إستعلام معاملات', Colors.blueGrey),
+                    _buildFeatureAction(
+                      Icons.list_alt_rounded, 
+                      'إستعلام وصل', 
+                      Colors.blueGrey,
+                      onTap: _handleSearch,
+                    ),
+                    _buildFeatureAction(
+                      Icons.history_rounded, 
+                      'إستعلام فصل', 
+                      Colors.blueGrey,
+                      onTap: _handleSearch,
+                    ),
+                    _buildFeatureAction(
+                      Icons.assignment_outlined, 
+                      'إستعلام معاملات', 
+                      Colors.blueGrey,
+                      onTap: () {
+                        if (_meterInfo != null) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => DirectCurrentManagementScreen(meterInfo: _meterInfo!),
+                            ),
+                          );
+                        } else {
+                          _showErrorSnackBar('يرجى الاستعلام عن عداد أولاً');
+                        }
+                      },
+                    ),
                     _buildFeatureAction(Icons.format_list_bulleted_rounded, 'حركات التوصيل', Colors.blueGrey),
                     _buildFeatureAction(
                       Icons.sync_rounded, 
@@ -1599,14 +1625,14 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.08),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, color: color, size: 26),
+                child: Icon(icon, color: color, size: 25),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4.0),
                 child: FittedBox(
