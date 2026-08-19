@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_application/features/direct_current/services/direct_current_service.dart';
 import 'package:smart_application/core/theme/app_theme.dart';
 
@@ -23,35 +24,45 @@ class _DirectInsertScreenState extends State<DirectInsertScreen> {
 
     setState(() => _isSending = true);
 
-    // تجهيز البيانات بنفس منطق الجافا
-    final params = {
-      'ENTRY_EMP_NO': '3040', // يجب جلبها من ملف التعاريف/التسجيل لاحقاً
-      'CUSM_CITY': widget.meterInfo['MTR_CITY'] ?? '',
-      'CUSM_NUM': widget.meterInfo['MTR_NUM'] ?? '',
-      'CUSM_NAME': widget.meterInfo['name'] ?? '',
-      'MTR_M_NUM': widget.meterInfo['meter_num'] ?? '',
-      'MTR_PHASE': widget.meterInfo['faz']?.replaceAll('فاز', '').trim() ?? '1',
-      'MTR_IS_SMART': widget.meterInfo['smart'] == 'ذكي' ? 1 : 0,
-      'MTR_LOCATION': '0.0,0.0', // يمكن تفعيل الـ GPS لاحقاً
-      'UNPAID_BILL_AMT': double.tryParse(widget.meterInfo['inv_amt'] ?? '0')?.toInt() ?? 0,
-      'REGION_DESC': widget.meterInfo['area'] ?? '',
-      'READER_MOBILE': '',
-      'ENG_WRKSHP_NO': _workshopController.text,
-      'ENG_NAME': 'ورشة الطوارئ',
-      'EMP_NOTES': _noteController.text,
-    };
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final empNo = prefs.getString('EMP_NO') ?? '0';
 
-    final result = await DirectCurrentService.insertDirectCurrent(params);
+      // تجهيز البيانات بنفس منطق الجافا
+      final params = {
+        'ENTRY_EMP_NO': empNo,
+        'CUSM_CITY': widget.meterInfo['MTR_CITY'] ?? '',
+        'CUSM_NUM': widget.meterInfo['MTR_NUM'] ?? '',
+        'CUSM_NAME': (widget.meterInfo['display_name'] ?? '').replaceAll('إسم المشترك: ', '').trim(),
+        'MTR_M_NUM': widget.meterInfo['display_meter'] ?? '',
+        'MTR_PHASE': (widget.meterInfo['display_faz'] ?? '').replaceAll('فاز', '').trim(),
+        'MTR_IS_SMART': widget.meterInfo['display_smart'] == 'ذكي' ? 1 : 0,
+        'MTR_LOCATION': '0.0,0.0',
+        'UNPAID_BILL_AMT': double.tryParse((widget.meterInfo['display_inv_amt'] ?? '0').replaceAll(RegExp(r'[^0-9.]'), ''))?.toInt() ?? 0,
+        'REGION_DESC': (widget.meterInfo['display_area'] ?? '').replaceAll('رقم المنطقة:', '').trim(),
+        'READER_MOBILE': (widget.meterInfo['display_mobile'] ?? '').replaceAll('هاتف القارئ:', '').trim(),
+        'ENG_WRKSHP_NO': _workshopController.text.trim(),
+        'ENG_NAME': 'ورشة الطوارئ',
+        'EMP_NOTES': _noteController.text.trim(),
+      };
 
-    if (!mounted) return;
-    setState(() => _isSending = false);
+      final result = await DirectCurrentService.insertDirectCurrent(params);
 
-    if (result == -2) {
-      _showResultDialog('تنبيه', 'معاملة مكررة لهذا اليوم', AppTheme.accentOrange);
-    } else if (result > 0) {
-      _showResultDialog('نجاح', 'تم إرسال المعاملة بنجاح', AppTheme.accentGreen, isSuccess: true);
-    } else {
-      _showResultDialog('فشل', 'فشل في إرسال المعاملة، حاول لاحقاً', AppTheme.accentRed);
+      if (!mounted) return;
+      setState(() => _isSending = false);
+
+      if (result == -2) {
+        _showResultDialog('تنبيه', 'معاملة مكررة لهذا اليوم', AppTheme.accentOrange);
+      } else if (result > 0) {
+        _showResultDialog('نجاح', 'تم إرسال المعاملة بنجاح', AppTheme.accentGreen, isSuccess: true);
+      } else {
+        _showResultDialog('فشل', 'فشل في إرسال المعاملة، حاول لاحقاً', AppTheme.accentRed);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSending = false);
+        _showResultDialog('خطأ', 'حدث خطأ: $e', AppTheme.accentRed);
+      }
     }
   }
 
@@ -89,8 +100,8 @@ class _DirectInsertScreenState extends State<DirectInsertScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildInfoTile('المشترك', widget.meterInfo['name'] ?? ''),
-              _buildInfoTile('رقم العداد', widget.meterInfo['meter_num'] ?? ''),
+              _buildInfoTile('المشترك', widget.meterInfo['display_name'] ?? ''),
+              _buildInfoTile('رقم العداد', widget.meterInfo['display_meter'] ?? ''),
               const Divider(height: 40),
               const Text('رقم الورشة', style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),

@@ -11,6 +11,7 @@ import 'package:smart_application/features/meter/screens/network_configuration_s
 import 'package:smart_application/features/billing/screens/view_meter_billing_screen.dart';
 import 'package:smart_application/features/direct_current/services/direct_current_service.dart';
 import 'package:smart_application/features/direct_current/screens/create_disconnection_screen.dart';
+import 'package:smart_application/features/direct_current/screens/direct_insert_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -51,6 +52,20 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       }
     });
+  }
+
+  void _navigateToDirectInsert() {
+    debugPrint(">>> NAVIGATING TO DIRECT CURRENT MANAGEMENT SCREEN...");
+    if (_meterInfo != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => DirectCurrentManagementScreen(meterInfo: _meterInfo!),
+        ),
+      );
+    } else {
+      _showErrorSnackBar('يرجى الاستعلام عن عداد أولاً');
+    }
   }
 
   void _handleSearch() async {
@@ -857,18 +872,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Icons.bolt_rounded, 
                       'إدخال حركة تأمين', 
                       AppTheme.primaryBlue,
-                      onTap: () {
-                        if (_meterInfo != null) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => DirectCurrentManagementScreen(meterInfo: _meterInfo!),
-                            ),
-                          );
-                        } else {
-                          _showErrorSnackBar('يرجى الاستعلام عن عداد أولاً');
-                        }
-                      },
+                      onTap: _navigateToDirectInsert,
                     ),
                     _buildFeatureAction(
                       Icons.manage_search_rounded, 
@@ -1054,7 +1058,24 @@ class _HomeScreenState extends State<HomeScreen> {
                         }
                       },
                     ),
-                    _buildFeatureAction(Icons.note_add_outlined, 'إنشاء معاملة', Colors.blueGrey),
+                    _buildFeatureAction(
+                      Icons.note_add_outlined, 
+                      'إنشاء معاملة', 
+                      Colors.blueGrey,
+                      onTap: () {
+                        if (_meterInfo != null) {
+                          debugPrint(">>> NAVIGATING TO DIRECT INSERT FROM SECTION 3");
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => DirectInsertScreen(meterInfo: _meterInfo!),
+                            ),
+                          );
+                        } else {
+                          _showErrorSnackBar('يرجى الاستعلام عن عداد أولاً');
+                        }
+                      },
+                    ),
                     _buildFeatureAction(Icons.list_alt_rounded, 'إستعلام وصل', Colors.blueGrey),
                     _buildFeatureAction(Icons.history_rounded, 'إستعلام فصل', Colors.blueGrey),
                     _buildFeatureAction(Icons.assignment_outlined, 'إستعلام معاملات', Colors.blueGrey),

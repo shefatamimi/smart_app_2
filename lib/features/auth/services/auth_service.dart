@@ -194,6 +194,14 @@ class AuthService {
         fullName,
       );
 
+      // حفظ بيانات الورشة (ضرورية لحركات الفصل والوصل)
+      if (userInfo.containsKey('SYS_MINOR')) {
+        await prefs.setString('SYS_MINOR', userInfo['SYS_MINOR']!);
+      }
+      if (userInfo.containsKey('SYS_DESC')) {
+        await prefs.setString('SYS_DESC', userInfo['SYS_DESC']!);
+      }
+
       // ============================================================
       // 11. التحقق مما تم تخزينه فعلياً
       // ============================================================
@@ -258,6 +266,7 @@ class AuthService {
       'NAME',
       'SYS_MINOR',
       'SYS_MAJOR',
+      'SYS_DESC',
       'EMPLOYEE_NO',
       'EMPLOYEENO',
       'EMPLOYEE_ID',
