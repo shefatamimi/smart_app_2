@@ -46,13 +46,16 @@ class _DirectCurrentManagementScreenState
   bool _isLoadingData = false;
 
   // ============================================================
-  // INSERT
+  // INSERT DATA (Dropdown Lists)
   // ============================================================
 
-  final TextEditingController _engineerController =
-  TextEditingController();
+  List<Map<String, String>> _engineers = [];
+  List<Map<String, String>> _reasons = [];
+  String? _selectedEngineerId;
+  String? _selectedEngineerName;
+  String? _selectedReason;
 
-  final TextEditingController _reasonController =
+  final TextEditingController _reasonNotesController =
   TextEditingController();
 
   bool _isSending = false;
@@ -64,8 +67,23 @@ class _DirectCurrentManagementScreenState
   @override
   void initState() {
     super.initState();
-
     _fetchRequests();
+    _loadDropdownData();
+  }
+
+  Future<void> _loadDropdownData() async {
+    try {
+      final engs = await DirectCurrentService.getEngineers();
+      final reas = await DirectCurrentService.getDirectReasons();
+      if (mounted) {
+        setState(() {
+          _engineers = engs;
+          _reasons = reas;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading dropdown data: $e");
+    }
   }
 
   // ============================================================
@@ -858,138 +876,157 @@ class _DirectCurrentManagementScreenState
   // ============================================================
 
   void _showInsertDialog() {
+    // إعادة تعيين القيم عند فتح الديالوج
+    _selectedEngineerId = _engineers.isNotEmpty ? _engineers.first['id'] : null;
+    _selectedEngineerName = _engineers.isNotEmpty ? _engineers.first['name']?.split(' - ').first : null;
+    _selectedReason = _reasons.isNotEmpty ? _reasons.first['name'] : null;
+    _reasonNotesController.clear();
+
+    if (_engineers.isEmpty || _reasons.isEmpty) {
+      _loadDropdownData().then((_) {
+        if (mounted) setState(() {});
+      });
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor:
-      Colors.transparent,
+      backgroundColor: Colors.transparent,
       builder: (ctx) {
-        return Container(
-          padding: EdgeInsets.only(
-            bottom:
-            MediaQuery.of(ctx)
-                .viewInsets
-                .bottom,
-          ),
-          decoration:
-          const BoxDecoration(
-            color: Colors.white,
-            borderRadius:
-            BorderRadius.only(
-              topLeft:
-              Radius.circular(35),
-              topRight:
-              Radius.circular(35),
-            ),
-          ),
-          child:
-          SingleChildScrollView(
-            padding:
-            const EdgeInsets.all(30),
-            child: Column(
-              mainAxisSize:
-              MainAxisSize.min,
-              children: [
-                Container(
-                  width: 50,
-                  height: 5,
-                  decoration:
-                  BoxDecoration(
-                    color:
-                    AppTheme.backgroundGrey,
-                    borderRadius:
-                    BorderRadius.circular(
-                        10),
-                  ),
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            bool isLoading = _engineers.isEmpty || _reasons.isEmpty;
+            
+            return Container(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom,
+              ),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(35),
+                  topRight: Radius.circular(35),
                 ),
-
-                const SizedBox(height: 25),
-
-                const Text(
-                  'إضافة طلب تأمين تيار',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight:
-                    FontWeight.w900,
-                    color:
-                    AppTheme.primaryBlue,
-                  ),
-                ),
-
-                const SizedBox(height: 30),
-
-                _buildModernTextField(
-                  'اسم المهندس المسؤول',
-                  Icons.person_outline_rounded,
-                  _engineerController,
-                ),
-
-                const SizedBox(height: 20),
-
-                _buildModernTextField(
-                  'سبب التأمين أو ملاحظات',
-                  Icons.edit_note_rounded,
-                  _reasonController,
-                  maxLines: 3,
-                ),
-
-                const SizedBox(height: 35),
-
-                ElevatedButton(
-                  onPressed: _isSending
-                      ? null
-                      : () async {
-                    setState(() {
-                      _isSending = true;
-                    });
-
-                    await _handleFinalSubmit();
-
-                    if (mounted) {
-                      setState(() {
-                        _isSending =
-                        false;
-                      });
-                    }
-                  },
-                  style:
-                  ElevatedButton.styleFrom(
-                    backgroundColor:
-                    AppTheme.secondaryBlue,
-                    foregroundColor:
-                    Colors.white,
-                    minimumSize:
-                    const Size(
-                      double.infinity,
-                      60,
+              ),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(30),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 50,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: AppTheme.backgroundGrey,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
                     ),
-                    shape:
-                    RoundedRectangleBorder(
-                      borderRadius:
-                      BorderRadius.circular(
-                          20),
+                    const SizedBox(height: 25),
+                    const Text(
+                      'إضافة طلب تأمين تيار',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.primaryBlue,
+                      ),
                     ),
-                    elevation: 5,
-                  ),
-                  child: _isSending
-                      ? const CircularProgressIndicator(
-                    color:
-                    Colors.white,
-                  )
-                      : const Text(
-                    'إرسال المعاملة الآن',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight:
-                      FontWeight.bold,
-                    ),
-                  ),
-                ),
+                    const SizedBox(height: 30),
 
-                const SizedBox(height: 20),
-              ],
-            ),
-          ),
+                    const Text('المهندس المسؤول', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textGrey)),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 15),
+                      decoration: BoxDecoration(
+                        color: AppTheme.backgroundGrey,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _engineers.any((e) => e['id'] == _selectedEngineerId) ? _selectedEngineerId : null,
+                          isExpanded: true,
+                          hint: Text(isLoading ? "جاري التحميل..." : "اختر المهندس"),
+                          items: _engineers.map((e) => DropdownMenuItem(
+                            value: e['id'],
+                            child: Text(e['name'] ?? ""),
+                          )).toList(),
+                          onChanged: isLoading ? null : (val) {
+                            setModalState(() {
+                              _selectedEngineerId = val;
+                              _selectedEngineerName = _engineers.firstWhere((e) => e['id'] == val)['name']?.split(' - ').first;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+                    const Text('سبب التأمين', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textGrey)),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 15),
+                      decoration: BoxDecoration(
+                        color: AppTheme.backgroundGrey,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _reasons.any((r) => r['name'] == _selectedReason) ? _selectedReason : null,
+                          isExpanded: true,
+                          hint: Text(isLoading ? "جاري التحميل..." : "اختر السبب"),
+                          items: _reasons.map((r) => DropdownMenuItem(
+                            value: r['name'],
+                            child: Text(r['name'] ?? ""),
+                          )).toList(),
+                          onChanged: isLoading ? null : (val) {
+                            setModalState(() => _selectedReason = val);
+                          },
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+                    const Text('ملاحظات إضافية (اختياري)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textGrey)),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _reasonNotesController,
+                      maxLines: 2,
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: AppTheme.backgroundGrey,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none),
+                        contentPadding: const EdgeInsets.all(20),
+                      ),
+                    ),
+
+                    const SizedBox(height: 35),
+                    ElevatedButton(
+                      onPressed: _isSending
+                          ? null
+                          : () async {
+                              setModalState(() => _isSending = true);
+                              await _handleFinalSubmit();
+                              if (mounted) setModalState(() => _isSending = false);
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.secondaryBlue,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(double.infinity, 60),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      ),
+                      child: _isSending
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text('إرسال المعاملة الآن', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+            );
+          },
         );
       },
     );
@@ -1265,13 +1302,13 @@ class _DirectCurrentManagementScreenState
             .trim(),
 
         'ENG_WRKSHP_NO':
-        '1',
+        _selectedEngineerId ?? '0',
 
         'ENG_NAME':
-        _engineerController.text.trim(),
+        _selectedEngineerName ?? '',
 
         'EMP_NOTES':
-        _reasonController.text.trim(),
+        '$_selectedReason ${_reasonNotesController.text}'.trim(),
       };
 
       debugPrint(
@@ -1332,9 +1369,7 @@ class _DirectCurrentManagementScreenState
 
   @override
   void dispose() {
-    _engineerController.dispose();
-    _reasonController.dispose();
-
+    _reasonNotesController.dispose();
     super.dispose();
   }
 }

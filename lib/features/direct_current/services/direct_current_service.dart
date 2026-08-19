@@ -223,6 +223,85 @@ class DirectCurrentService {
     }
   }
 
+  /// جلب قائمة المهندسين باستخدام GetIDECO_WorkshopMF كما في كود Java الأصلي
+  static Future<List<Map<String, String>>> getEngineers() async {
+    try {
+      String data = "wrk_type:34,office_id:0,minor:0,datatype:3";
+      
+      // استخدام GetIDECO_WorkshopMF بدلاً من GetSmartGenerics لمطابقة كود Java
+      String response = await ApiClient.makeSoapRequest(
+          AppConstants.baseUrl, "GetIDECO_WorkshopMF", ApiClient.encryptRSA(data));
+
+      if (response.isEmpty) return [];
+      xml.XmlDocument document = xml.XmlDocument.parse(response);
+      
+      final allElements = document.descendants.whereType<xml.XmlElement>();
+      List<Map<String, String>> list = [];
+      Set<String> seenIds = {};
+
+      for (var element in allElements) {
+        final nameNode = element.descendants.whereType<xml.XmlElement>()
+            .where((e) => e.name.local.toUpperCase() == 'WRK_NAME').firstOrNull;
+        final noNode = element.descendants.whereType<xml.XmlElement>()
+            .where((e) => e.name.local.toUpperCase() == 'WRK_NO').firstOrNull;
+
+        if (nameNode != null && noNode != null) {
+          String name = nameNode.innerText.trim();
+          String no = noNode.innerText.trim();
+          
+          if (name.isNotEmpty && name != "anyType{}" && !seenIds.contains(no)) {
+            list.add({"id": no, "name": "$name - $no"});
+            seenIds.add(no);
+          }
+        }
+      }
+      return list;
+    } catch (e) {
+      debugPrint("GET ENGINEERS ERROR: $e");
+      return [];
+    }
+  }
+
+  /// جلب أسباب تأمين التيار باستخدام GetGenericsDataTable كما في كود Java الأصلي
+  static Future<List<Map<String, String>>> getDirectReasons() async {
+    try {
+      // DataType:73,SYSMajor:699 كما في كود Java
+      String data = "DataType:73,SYSMajor:699";
+      
+      // استخدام GetGenericsDataTable بدلاً من GetSmartGenerics لمطابقة كود Java
+      String response = await ApiClient.makeSoapRequest(
+          AppConstants.baseUrl, "GetGenericsDataTable", ApiClient.encryptRSA(data));
+
+      if (response.isEmpty) return [];
+      xml.XmlDocument document = xml.XmlDocument.parse(response);
+      
+      final allElements = document.descendants.whereType<xml.XmlElement>();
+      List<Map<String, String>> list = [];
+      Set<String> seenNames = {};
+
+      for (var element in allElements) {
+        final descNode = element.descendants.whereType<xml.XmlElement>()
+            .where((e) => e.name.local.toUpperCase() == 'SYS_DESC').firstOrNull;
+        final minorNode = element.descendants.whereType<xml.XmlElement>()
+            .where((e) => e.name.local.toUpperCase() == 'SYS_MINOR').firstOrNull;
+
+        if (descNode != null) {
+          String desc = descNode.innerText.trim();
+          String minor = minorNode?.innerText.trim() ?? desc;
+          
+          if (desc.isNotEmpty && desc != "anyType{}" && !seenNames.contains(desc)) {
+            list.add({"id": minor, "name": desc});
+            seenNames.add(desc);
+          }
+        }
+      }
+      return list;
+    } catch (e) {
+      debugPrint("GET REASONS ERROR: $e");
+      return [];
+    }
+  }
+
   /// جلب الثوابت (أنواع وأسباب الفصل) من السيرفر بتنسيق IDECO الدقيق
   static Future<List<Map<String, String>>> getSmartGenerics(int dataType) async {
     try {
