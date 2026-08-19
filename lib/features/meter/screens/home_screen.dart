@@ -12,6 +12,7 @@ import 'package:smart_application/features/billing/screens/view_meter_billing_sc
 import 'package:smart_application/features/direct_current/services/direct_current_service.dart';
 import 'package:smart_application/features/direct_current/screens/create_disconnection_screen.dart';
 import 'package:smart_application/features/direct_current/screens/direct_insert_screen.dart';
+import 'package:smart_application/features/direct_current/screens/create_transaction_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -55,12 +56,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _navigateToDirectInsert() {
-    debugPrint(">>> NAVIGATING TO DIRECT CURRENT MANAGEMENT SCREEN...");
+    debugPrint(">>> NAVIGATING TO DIRECT INSERT SCREEN...");
     if (_meterInfo != null) {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => DirectCurrentManagementScreen(meterInfo: _meterInfo!),
+          builder: (context) => DirectInsertScreen(meterInfo: _meterInfo!),
         ),
       );
     } else {
@@ -960,10 +961,60 @@ class _HomeScreenState extends State<HomeScreen> {
                         }
                       },
                     ),
-                    _buildFeatureAction(Icons.link_off_rounded, 'فصل مع حركة', Colors.indigo),
-                    _buildFeatureAction(Icons.link_rounded, 'وصل مع حركة', Colors.indigo),
+                    _buildFeatureAction(
+                      Icons.link_off_rounded, 
+                      'إنشاء معاملة فصل', 
+                      AppTheme.accentRed,
+                      onTap: () async {
+                        if (_meterInfo != null) {
+                          final prefs = await SharedPreferences.getInstance();
+                          final user = prefs.getString('ORACLE_USER') ?? "";
+                          final workshop = prefs.getString('SYS_MINOR') ?? "";
+
+                          if (user.isEmpty || workshop.isEmpty) {
+                            _showErrorSnackBar('يرجى ضبط رقم المستخدم والورشة من الإعدادات أولاً');
+                            return;
+                          }
+
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => CreateDisconnectionScreen(meterInfo: _meterInfo!),
+                            ),
+                          );
+                        } else {
+                          _showErrorSnackBar('يرجى الاستعلام عن عداد أولاً');
+                        }
+                      },
+                    ),
+                    _buildFeatureAction(
+                      Icons.link_rounded, 
+                      'إنشاء معاملة وصل', 
+                      AppTheme.accentGreen,
+                      onTap: () async {
+                        if (_meterInfo != null) {
+                          final prefs = await SharedPreferences.getInstance();
+                          final user = prefs.getString('ORACLE_USER') ?? "";
+                          final workshop = prefs.getString('SYS_MINOR') ?? "";
+
+                          if (user.isEmpty || workshop.isEmpty) {
+                            _showErrorSnackBar('يرجى ضبط رقم المستخدم والورشة من الإعدادات أولاً');
+                            return;
+                          }
+
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => CreateConnectionScreen(meterInfo: _meterInfo!),
+                            ),
+                          );
+                        } else {
+                          _showErrorSnackBar('يرجى الاستعلام عن عداد أولاً');
+                        }
+                      },
+                    ),
                     _buildFeatureAction(Icons.online_prediction_rounded, 'وصل عن بعد', Colors.indigo),
-                  ], crossAxisCount: 3),
+                  ], crossAxisCount: 2),
 
                   const SizedBox(height: 20),
 
@@ -1061,14 +1112,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     _buildFeatureAction(
                       Icons.note_add_outlined, 
                       'إنشاء معاملة', 
-                      Colors.blueGrey,
+                      AppTheme.accentRed,
                       onTap: () {
                         if (_meterInfo != null) {
-                          debugPrint(">>> NAVIGATING TO DIRECT INSERT FROM SECTION 3");
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => DirectInsertScreen(meterInfo: _meterInfo!),
+                              builder: (context) => CreateTransactionScreen(meterInfo: _meterInfo!),
                             ),
                           );
                         } else {

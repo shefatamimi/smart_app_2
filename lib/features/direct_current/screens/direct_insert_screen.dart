@@ -13,12 +13,45 @@ class DirectInsertScreen extends StatefulWidget {
 
 class _DirectInsertScreenState extends State<DirectInsertScreen> {
   final TextEditingController _noteController = TextEditingController();
-  final TextEditingController _workshopController = TextEditingController();
   bool _isSending = false;
+  bool _isLoadingData = true;
+
+  List<Map<String, String>> _engineers = [];
+  List<Map<String, String>> _reasons = [];
+  String? _selectedEngineerId;
+  String? _selectedEngineerName;
+  String? _selectedReason;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      final engs = await DirectCurrentService.getEngineers();
+      final reas = await DirectCurrentService.getDirectReasons();
+      if (mounted) {
+        setState(() {
+          _engineers = engs;
+          _reasons = reas;
+          if (_engineers.isNotEmpty) {
+             _selectedEngineerId = _engineers.first['id'];
+             _selectedEngineerName = _engineers.first['name']?.split(' - ').first;
+          }
+          if (_reasons.isNotEmpty) _selectedReason = _reasons.first['name'];
+          _isLoadingData = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingData = false);
+    }
+  }
 
   Future<void> _handleSubmit() async {
-    if (_workshopController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('الرجاء إدخال رقم الورشة')));
+    if (_selectedEngineerId == null || _selectedReason == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('الرجاء اختيار المهندس والسبب')));
       return;
     }
 
@@ -41,9 +74,9 @@ class _DirectInsertScreenState extends State<DirectInsertScreen> {
         'UNPAID_BILL_AMT': double.tryParse((widget.meterInfo['display_inv_amt'] ?? '0').replaceAll(RegExp(r'[^0-9.]'), ''))?.toInt() ?? 0,
         'REGION_DESC': (widget.meterInfo['display_area'] ?? '').replaceAll('رقم المنطقة:', '').trim(),
         'READER_MOBILE': (widget.meterInfo['display_mobile'] ?? '').replaceAll('هاتف القارئ:', '').trim(),
-        'ENG_WRKSHP_NO': _workshopController.text.trim(),
-        'ENG_NAME': 'ورشة الطوارئ',
-        'EMP_NOTES': _noteController.text.trim(),
+        'ENG_WRKSHP_NO': _selectedEngineerId ?? '0',
+        'ENG_NAME': _selectedEngineerName ?? '',
+        'EMP_NOTES': '$_selectedReason ${_noteController.text}'.trim(),
       };
 
       final result = await DirectCurrentService.insertDirectCurrent(params);
@@ -95,7 +128,9 @@ class _DirectInsertScreenState extends State<DirectInsertScreen> {
           backgroundColor: AppTheme.primaryBlue,
           foregroundColor: Colors.white,
         ),
-        body: SingleChildScrollView(
+        body: _isLoadingData 
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -103,27 +138,66 @@ class _DirectInsertScreenState extends State<DirectInsertScreen> {
               _buildInfoTile('المشترك', widget.meterInfo['display_name'] ?? ''),
               _buildInfoTile('رقم العداد', widget.meterInfo['display_meter'] ?? ''),
               const Divider(height: 40),
-              const Text('رقم الورشة', style: TextStyle(fontWeight: FontWeight.bold)),
+              
+              const Text('المهندس المسؤول', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textGrey)),
               const SizedBox(height: 8),
-              TextField(
-                controller: _workshopController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  hintText: 'أدخل رقم الورشة هنا',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  filled: true,
-                  fillColor: AppTheme.backgroundGrey,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 15),
+                decoration: BoxDecoration(
+                  color: AppTheme.backgroundGrey,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _engineers.any((e) => e['id'] == _selectedEngineerId) ? _selectedEngineerId : null,
+                    isExpanded: true,
+                    hint: const Text("اختر المهندس"),
+                    items: _engineers.map((e) => DropdownMenuItem(
+                      value: e['id'],
+                      child: Text(e['name'] ?? ""),
+                    )).toList(),
+                    onChanged: (val) {
+                      setState(() {
+                        _selectedEngineerId = val;
+                        _selectedEngineerName = _engineers.firstWhere((e) => e['id'] == val)['name']?.split(' - ').first;
+                      });
+                    },
+                  ),
                 ),
               ),
+
               const SizedBox(height: 20),
-              const Text('ملاحظات الموظف', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text('سبب التأمين', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textGrey)),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 15),
+                decoration: BoxDecoration(
+                  color: AppTheme.backgroundGrey,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _reasons.any((r) => r['name'] == _selectedReason) ? _selectedReason : null,
+                    isExpanded: true,
+                    hint: const Text("اختر السبب"),
+                    items: _reasons.map((r) => DropdownMenuItem(
+                      value: r['name'],
+                      child: Text(r['name'] ?? ""),
+                    )).toList(),
+                    onChanged: (val) => setState(() => _selectedReason = val),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+              const Text('ملاحظات إضافية', style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               TextField(
                 controller: _noteController,
                 maxLines: 4,
                 decoration: InputDecoration(
                   hintText: 'اكتب أي ملاحظات إضافية هنا...',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                   filled: true,
                   fillColor: AppTheme.backgroundGrey,
                 ),
@@ -133,7 +207,7 @@ class _DirectInsertScreenState extends State<DirectInsertScreen> {
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
-                  onPressed: _isSending ? null : _handleSubmit,
+                  onPressed: _isSending || _engineers.isEmpty ? null : _handleSubmit,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.secondaryBlue,
                     foregroundColor: Colors.white,

@@ -153,6 +153,42 @@ class DirectCurrentService {
     } catch (e) { return -1; }
   }
 
+  /// إتمام عملية تأمين التيار (إنشاء المعاملة الفنية)
+  static Future<int> processDirectCurrent(String requestId, String empNo) async {
+    try {
+      // بناء الـ XML لإتمام المعاملة
+      String soapEnvelope = '''
+<v:Envelope xmlns:v="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="http://tempuri.org/">
+   <v:Header/>
+   <v:Body>
+      <tem:INSERT_DIRECT_CURRENT_TRANS>
+         <tem:REQUEST_ID>$requestId</tem:REQUEST_ID>
+         <tem:EMP_NO>$empNo</tem:EMP_NO>
+      </tem:INSERT_DIRECT_CURRENT_TRANS>
+   </v:Body>
+</v:Envelope>''';
+
+      final response = await http.post(
+        Uri.parse(AppConstants.baseUrl),
+        headers: {
+          "Content-Type": "text/xml; charset=utf-8",
+          "SOAPAction": "http://tempuri.org/IBillingWcfsrv/INSERT_DIRECT_CURRENT_TRANS"
+        },
+        body: utf8.encode(soapEnvelope)
+      ).timeout(const Duration(seconds: 45));
+
+      if (response.statusCode == 200) {
+        final document = xml.XmlDocument.parse(response.body);
+        final result = document.findAllElements("INSERT_DIRECT_CURRENT_TRANSResult");
+        if (result.isNotEmpty) return int.tryParse(result.first.innerText) ?? 0;
+      }
+      return 0;
+    } catch (e) {
+      debugPrint("PROCESS DC ERROR: $e");
+      return -1;
+    }
+  }
+
   static Future<List<DirectCurrentItem>> getDirectCurrentList(String whereClause) async {
     try {
       debugPrint(">>> SENDING DC REQUEST WITH WHERE: $whereClause");
@@ -299,6 +335,79 @@ class DirectCurrentService {
     } catch (e) {
       debugPrint("GET REASONS ERROR: $e");
       return [];
+    }
+  }
+
+  /// جلب أنواع الفصل (Disconnection Kinds) - DataType:12 أو 36 حسب النظام
+  static Future<List<Map<String, String>>> getDisconnectionKinds() async {
+    return await getSmartGenerics(12);
+  }
+
+  /// جلب أسباب الفصل (Disconnection Reasons) - DataType:11 أو 72 حسب النظام
+  static Future<List<Map<String, String>>> getDisconnectionReasons() async {
+    return await getSmartGenerics(11);
+  }
+
+  /// جلب أنواع المعاملات (Transaction Types) - DataType:49, SYSMajor:949 كما في كود Java
+  static Future<List<Map<String, String>>> getTransactionTypes() async {
+    try {
+      String data = "DataType:49,SYSMajor:949";
+      String response = await ApiClient.makeSoapRequest(
+          AppConstants.baseUrl, "GetGenericsDataTable", ApiClient.encryptRSA(data));
+
+      if (response.isEmpty) return [];
+      xml.XmlDocument document = xml.XmlDocument.parse(response);
+      
+      final allElements = document.descendants.whereType<xml.XmlElement>();
+      List<Map<String, String>> list = [];
+      Set<String> uniqueIds = {}; 
+
+      for (var element in allElements) {
+        final minorNode = element.descendants.whereType<xml.XmlElement>()
+            .where((e) => e.name.local.toUpperCase() == 'SYS_MINOR').firstOrNull;
+        final descNode = element.descendants.whereType<xml.XmlElement>()
+            .where((e) => e.name.local.toUpperCase() == 'SYS_DESC').firstOrNull;
+
+        if (minorNode != null && descNode != null) {
+          String minor = minorNode.innerText.trim();
+          String desc = descNode.innerText.trim();
+
+          if (minor.isNotEmpty && minor != "anyType{}" && !uniqueIds.contains(minor)) {
+            list.add({"id": minor, "name": desc});
+            uniqueIds.add(minor);
+          }
+        }
+      }
+      return list;
+    } catch (e) {
+      debugPrint("GET TRANSACTION TYPES ERROR: $e");
+      return [];
+    }
+  }
+
+  /// إرسال المعاملة الفعلية (InsertProccess) كما في كود Java الأصلي
+  static Future<String> insertProcess({
+    required String meterNum,
+    required String procCode,
+    required String procName,
+    required String notes,
+  }) async {
+    try {
+      // بناء نص الطلب كما هو متوقع في InsertProccess
+      String data = "strMTR_NUM:$meterNum,intProcCode:$procCode,strProcName:$procName,strNotes:$notes";
+      
+      String response = await ApiClient.makeSoapRequest(
+        AppConstants.baseUrl, 
+        "InsertProccess", 
+        ApiClient.encryptRSA(data)
+      );
+      
+      final document = xml.XmlDocument.parse(response);
+      final result = document.findAllElements("InsertProccessResult");
+      
+      return result.isNotEmpty ? result.first.innerText : "فشل إرسال المعاملة";
+    } catch (e) {
+      return "خطأ: $e";
     }
   }
 

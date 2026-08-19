@@ -30,9 +30,9 @@ class _CreateDisconnectionScreenState extends State<CreateDisconnectionScreen> {
 
   Future<void> _loadDropdownData() async {
     try {
-      // جلب البيانات من السيرفر (11 هي للأسباب و 12 هي للأنواع)
-      final reasons = await DirectCurrentService.getSmartGenerics(11);
-      final kinds = await DirectCurrentService.getSmartGenerics(12);
+      // جلب البيانات من السيرفر باستخدام الدوال المتخصصة الجديدة التي أضفناها
+      final reasons = await DirectCurrentService.getDisconnectionReasons();
+      final kinds = await DirectCurrentService.getDisconnectionKinds();
 
       if (mounted) {
         if (reasons.isEmpty && kinds.isEmpty) {

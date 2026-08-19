@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_application/features/direct_current/services/direct_current_service.dart';
 import 'package:smart_application/core/theme/app_theme.dart';
 
@@ -41,22 +42,39 @@ class _CreateConnectionScreenState extends State<CreateConnectionScreen> {
   Future<void> _executeConnTrans() async {
     setState(() => _isProcessing = true);
     
-    // جلب البيانات المطلوبة (التي كانت تُجلب من SharedPreferences في الجافا)
-    // ملاحظة: هنا نستخدم قيم افتراضية حالياً كما في كود الجافا
-    final result = await DirectCurrentService.connTrans(
-      meterNum: widget.meterInfo['display_meter'] ?? "",
-      workshopId: "1", // SYS_MINOR
-      workshopName: "ورشة الطوارئ", // SYS_DESC
-      userName: "ADMIN", // ORACLE_USER
-      cityId: widget.meterInfo['MTR_CITY'] ?? "",
-      custId: widget.meterInfo['MTR_NUM'] ?? "",
-      lat: 0.0,
-      lng: 0.0,
-    );
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // جلب البيانات الحقيقية للموظف من SharedPreferences كما في الجافا
+      final String workshopId = prefs.getString('SYS_MINOR') ?? "0";
+      final String workshopName = prefs.getString('SYS_DESC') ?? "غير معروف";
+      final String oracleUser = prefs.getString('ORACLE_USER') ?? "UNKNOWN";
+      
+      final result = await DirectCurrentService.connTrans(
+        meterNum: widget.meterInfo['display_meter'] ?? "",
+        workshopId: workshopId,
+        workshopName: workshopName,
+        userName: oracleUser,
+        cityId: widget.meterInfo['MTR_CITY'] ?? "",
+        custId: widget.meterInfo['MTR_NUM'] ?? "",
+        lat: 0.0,
+        lng: 0.0,
+      );
 
-    if (mounted) {
-      setState(() => _isProcessing = false);
-      _showResult(result);
+      if (mounted) {
+        setState(() => _isProcessing = false);
+        _showResult(result);
+        
+        // إذا نجحت العملية، نعود للشاشة السابقة
+        if (result.contains("نجاح") || result.contains("تم")) {
+          Navigator.pop(context);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+        _showResult("خطأ: $e");
+      }
     }
   }
 

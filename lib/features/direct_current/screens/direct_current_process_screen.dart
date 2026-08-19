@@ -1,21 +1,48 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_application/features/direct_current/models/direct_current_item.dart';
+import 'package:smart_application/features/direct_current/services/direct_current_service.dart';
 import 'package:smart_application/core/theme/app_theme.dart';
 
-class DirectCurrentProcessScreen extends StatelessWidget {
+import 'package:smart_application/features/direct_current/screens/create_technical_transaction_screen.dart';
+
+class DirectCurrentProcessScreen extends StatefulWidget {
   final DirectCurrentItem data;
   const DirectCurrentProcessScreen({super.key, required this.data});
 
   @override
+  State<DirectCurrentProcessScreen> createState() => _DirectCurrentProcessScreenState();
+}
+
+class _DirectCurrentProcessScreenState extends State<DirectCurrentProcessScreen> {
+  bool _isProcessing = false;
+
+  Future<void> _handleProcessTransaction() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreateTechnicalTransactionScreen(data: widget.data),
+      ),
+    );
+
+    if (result == true && mounted) {
+      Navigator.pop(context, true); // إغلاق هذه الشاشة أيضاً لتحديث القائمة الرئيسية
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    bool canProcess = widget.data.state == "2"; // حالة "بانتظار المقدم" تعني جاهزية الإنشاء
+
     return Directionality(
       textDirection: ui.TextDirection.rtl,
       child: Scaffold(
         backgroundColor: AppTheme.backgroundGrey,
+        bottomNavigationBar: canProcess ? _buildBottomAction() : null,
         body: CustomScrollView(
           slivers: [
-            // --- Elegant Gradient Header ---
+            // ... (بقية الكود كما هو)
             SliverAppBar(
               expandedHeight: 180,
               pinned: true,
@@ -58,34 +85,34 @@ class DirectCurrentProcessScreen extends StatelessWidget {
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   // --- Status Badge ---
-                  _buildStatusHeader(data),
+                  _buildStatusHeader(widget.data),
 
                   const SizedBox(height: 20),
 
                   // --- Sections ---
                   _buildElegantSection('معلومات المشترك', Icons.person_outline_rounded, [
-                    _buildDataRow(Icons.numbers_rounded, 'رقم العداد', data.mtrMNum),
-                    _buildDataRow(Icons.person_pin_rounded, 'اسم المشترك', data.cusmName),
-                    _buildDataRow(Icons.location_on_outlined, 'المنطقة', data.regionDesc),
-                    _buildDataRow(Icons.map_outlined, 'رقم الاشتراك', "${data.cusmCity}/${data.cusmNum}"),
+                    _buildDataRow(Icons.numbers_rounded, 'رقم العداد', widget.data.mtrMNum),
+                    _buildDataRow(Icons.person_pin_rounded, 'اسم المشترك', widget.data.cusmName),
+                    _buildDataRow(Icons.location_on_outlined, 'المنطقة', widget.data.regionDesc),
+                    _buildDataRow(Icons.map_outlined, 'رقم الاشتراك', "${widget.data.cusmCity}/${widget.data.cusmNum}"),
                   ]),
 
                   const SizedBox(height: 16),
 
                   _buildElegantSection('الحالة الفنية والمالية', Icons.bolt_rounded, [
-                    _buildDataRow(Icons.memory_rounded, 'نوع العداد', data.mtrIsSmart == "1" ? "عداد ذكي" : "عداد عادي"),
-                    _buildDataRow(Icons.electrical_services_rounded, 'المرحلة (Phase)', "${data.mtrPhase} فاز"),
-                    _buildDataRow(Icons.payments_outlined, 'الذمم المتبقية', "${data.unpaidBillAmt} دينار"),
-                    _buildDataRow(Icons.calendar_month_rounded, 'تاريخ الإدخال', data.entryDate),
+                    _buildDataRow(Icons.memory_rounded, 'نوع العداد', widget.data.mtrIsSmart == "1" ? "عداد ذكي" : "عداد عادي"),
+                    _buildDataRow(Icons.electrical_services_rounded, 'المرحلة (Phase)', "${widget.data.mtrPhase} فاز"),
+                    _buildDataRow(Icons.payments_outlined, 'الذمم المتبقية', "${widget.data.unpaidBillAmt} دينار"),
+                    _buildDataRow(Icons.calendar_month_rounded, 'تاريخ الإدخال', widget.data.entryDate),
                   ]),
 
                   const SizedBox(height: 16),
 
                   _buildElegantSection('إجراءات وملاحظات', Icons.assignment_turned_in_outlined, [
-                    _buildDataRow(Icons.engineering_rounded, 'المهندس المسؤول', data.engName),
-                    _buildDataRow(Icons.check_circle_outline_rounded, 'حالة القبول', data.engApprovedDesc),
-                    _buildDataRow(Icons.speaker_notes_outlined, 'ملاحظات الموظف', data.empNotes),
-                    _buildDataRow(Icons.edit_note_rounded, 'ملاحظات المهندس', data.engNotes.isEmpty ? "لا يوجد ملاحظات" : data.engNotes),
+                    _buildDataRow(Icons.engineering_rounded, 'المهندس المسؤول', widget.data.engName),
+                    _buildDataRow(Icons.check_circle_outline_rounded, 'حالة القبول', widget.data.engApprovedDesc),
+                    _buildDataRow(Icons.speaker_notes_outlined, 'ملاحظات الموظف', widget.data.empNotes),
+                    _buildDataRow(Icons.edit_note_rounded, 'ملاحظات المهندس', widget.data.engNotes.isEmpty ? "لا يوجد ملاحظات" : widget.data.engNotes),
                   ]),
 
                   const SizedBox(height: 100),
@@ -94,6 +121,29 @@ class DirectCurrentProcessScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildBottomAction() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(topLeft: Radius.circular(30), topRight: Radius.circular(30)),
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20)],
+      ),
+      child: ElevatedButton(
+        onPressed: _isProcessing ? null : _handleProcessTransaction,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppTheme.secondaryBlue,
+          foregroundColor: Colors.white,
+          minimumSize: const Size(double.infinity, 60),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        ),
+        child: _isProcessing 
+          ? const CircularProgressIndicator(color: Colors.white)
+          : const Text('إنشاء المعاملة الفنية الآن', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
       ),
     );
   }
