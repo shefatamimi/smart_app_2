@@ -125,39 +125,96 @@ class _CreateConnectionScreenState extends State<CreateConnectionScreen> {
     );
   }
 
+  Widget _buildHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 60, 20, 30),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+          colors: [AppTheme.primaryBlue, AppTheme.secondaryBlue],
+        ),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(40),
+          bottomRight: Radius.circular(40),
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 22),
+                onPressed: () => Navigator.pop(context),
+              ),
+              // Circular Logo
+              Container(
+                height: 80,
+                width: 80,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white.withOpacity(0.5), width: 3),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5))
+                  ],
+                ),
+                child: ClipOval(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Image.asset('lib/assets/images.jpg', fit: BoxFit.contain),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 40),
+            ],
+          ),
+          const SizedBox(height: 15),
+          const Text(
+            'إنشاء حركة وصل',
+            style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: ui.TextDirection.rtl,
       child: Scaffold(
         backgroundColor: AppTheme.backgroundGrey,
-        appBar: AppBar(
-          title: const Text('إنشاء حركة وصل'),
-          backgroundColor: AppTheme.secondaryBlue,
-          foregroundColor: Colors.white,
-          centerTitle: true,
-        ),
         body: Column(
           children: [
+            _buildHeader(),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(15),
+                padding: const EdgeInsets.all(20),
                 child: Container(
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: AppTheme.surfaceWhite,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: Column(
-                    children: [
-                      _buildInfoRow('رقم العداد', widget.meterInfo['display_meter'] ?? '---'),
-                      _buildInfoRow('اسم المشترك', widget.meterInfo['display_name'] ?? '---'),
-                      _buildInfoRow('هاتف المشترك', widget.meterInfo['CUSM_TELEPHONE'] ?? '---'),
-                      _buildInfoRow('عنوان المشترك', widget.meterInfo['display_area'] ?? '---'),
-                      _buildInfoRow('نوع الفصل', widget.meterInfo['SEP_TYPE_DESC'] ?? '---'),
-                      _buildInfoRow('تاريخ الفصل', widget.meterInfo['SEP_DATE'] ?? '---'),
-                      _buildInfoRow('الحالة', widget.meterInfo['STATUS_DESC'] ?? '---'),
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 25, offset: const Offset(0, 10))
                     ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: Column(
+                      children: [
+                        _buildInfoRow(Icons.qr_code_2_rounded, 'رقم العداد', widget.meterInfo['display_meter'] ?? '---'),
+                        _buildInfoRow(Icons.person_rounded, 'اسم المشترك', widget.meterInfo['display_name'] ?? '---'),
+                        _buildInfoRow(Icons.phone_rounded, 'هاتف المشترك', widget.meterInfo['CUSM_TELEPHONE'] ?? '---'),
+                        _buildInfoRow(Icons.location_on_rounded, 'العنوان', widget.meterInfo['display_area'] ?? '---'),
+                        _buildInfoRow(Icons.link_off_rounded, 'نوع الفصل', widget.meterInfo['SEP_TYPE_DESC'] ?? '---'),
+                        _buildInfoRow(Icons.calendar_month_rounded, 'تاريخ الفصل', widget.meterInfo['SEP_DATE'] ?? '---'),
+                        _buildInfoRow(Icons.info_outline_rounded, 'الحالة الحالية', widget.meterInfo['STATUS_DESC'] ?? '---'),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -169,21 +226,49 @@ class _CreateConnectionScreenState extends State<CreateConnectionScreen> {
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
+  Widget _buildInfoRow(IconData icon, String label, String value) {
     return Container(
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey.shade200))),
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppTheme.primaryBlue.withOpacity(0.05))),
+      ),
       child: Row(
         children: [
           Container(
-            width: 120,
-            padding: const EdgeInsets.all(12),
-            color: Colors.grey.shade100,
-            child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            width: 140,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryBlue.withOpacity(0.04),
+              borderRadius: const BorderRadius.horizontal(right: Radius.circular(12)),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, size: 18, color: AppTheme.primaryBlue),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    label, 
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold, 
+                      fontSize: 13, 
+                      color: AppTheme.textGrey
+                    )
+                  )
+                ),
+              ],
+            ),
           ),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text(value, style: const TextStyle(fontSize: 13, color: AppTheme.textDark)),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                value, 
+                style: const TextStyle(
+                  fontSize: 15, 
+                  fontWeight: FontWeight.w900, 
+                  color: AppTheme.primaryBlue
+                )
+              ),
             ),
           ),
         ],
@@ -193,21 +278,53 @@ class _CreateConnectionScreenState extends State<CreateConnectionScreen> {
 
   Widget _buildActionButton() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
-      color: AppTheme.surfaceWhite,
-      child: SizedBox(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 40),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceWhite,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05), 
+            blurRadius: 15, 
+            offset: const Offset(0, -5)
+          )
+        ],
+      ),
+      child: Container(
         width: double.infinity,
-        height: 55,
+        height: 60,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF10B981), Color(0xFF34D399)],
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF10B981).withOpacity(0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            )
+          ],
+        ),
         child: ElevatedButton(
           onPressed: _isProcessing ? null : _handleConnection,
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.secondaryBlue,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            backgroundColor: Colors.transparent,
+            shadowColor: Colors.transparent,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           ),
           child: _isProcessing 
             ? const CircularProgressIndicator(color: Colors.white) 
-            : const Text('إنشاء حركة وصل', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            : const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.bolt_rounded, color: Colors.white),
+                  SizedBox(width: 12),
+                  Text(
+                    'تفعيل وإرسال حركة الوصل',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                ],
+              ),
         ),
       ),
     );

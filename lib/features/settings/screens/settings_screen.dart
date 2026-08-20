@@ -57,18 +57,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // تشغيل عملية التحديث
       final result = await AuthService.updateUserPass(newPass, userId);
 
-      if (result.contains("OK") || result.toLowerCase().contains("success") || !result.toLowerCase().contains("error")) {
-        // تحديث كلمة السر في الذاكرة المحلية
-        await prefs.setString('password', newPass);
-        _showSnackBar('تم تغيير كلمة السر بنجاح', AppTheme.accentGreen);
+      // في أنظمة IDECO القديمة، النجاح يرجع كلمة "true"
+      if (result.toLowerCase() == "true") {
+        _showSnackBar('تم تغيير كلمة السر بنجاح. يرجى إعادة تسجيل الدخول', AppTheme.accentGreen);
         
         if (mounted) {
-          Future.delayed(const Duration(seconds: 2), () {
-            Navigator.pop(context);
+          Future.delayed(const Duration(seconds: 2), () async {
+            // مسح الجلسة والتوجه للوق ان كما في الجافا
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.clear();
+            
+            if (mounted) {
+              Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+            }
           });
         }
       } else {
-        _showSnackBar(result, AppTheme.accentRed);
+        _showSnackBar(result.contains("error") ? "فشل التحديث من السيرفر" : result, AppTheme.accentRed);
       }
     } catch (e) {
       _showSnackBar('حدث خطأ: $e', AppTheme.accentRed);

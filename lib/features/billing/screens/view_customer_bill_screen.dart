@@ -108,10 +108,17 @@ class _ViewCustomerBillScreenState extends State<ViewCustomerBillScreen> {
   Widget _buildHeader() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
+      padding: const EdgeInsets.fromLTRB(20, 60, 20, 30),
       decoration: const BoxDecoration(
-        color: AppTheme.secondaryBlue,
-        borderRadius: BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
+        gradient: LinearGradient(
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+          colors: [AppTheme.primaryBlue, AppTheme.secondaryBlue],
+        ),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(40),
+          bottomRight: Radius.circular(40),
+        ),
       ),
       child: Column(
         children: [
@@ -119,13 +126,25 @@ class _ViewCustomerBillScreenState extends State<ViewCustomerBillScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 22),
                 onPressed: () => Navigator.pop(context),
               ),
+              // Circular Logo - Matching HomeScreen
               Container(
-                height: 65,
-                width: 65,
-                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                height: 80,
+                width: 80,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white.withOpacity(0.5), width: 3),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5),
+                    )
+                  ],
+                ),
                 child: ClipOval(
                   child: Padding(
                     padding: const EdgeInsets.all(8.0),
@@ -136,10 +155,15 @@ class _ViewCustomerBillScreenState extends State<ViewCustomerBillScreen> {
               const SizedBox(width: 40),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 15),
           const Text(
             'إستعراض الفواتير',
-            style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+            ),
           ),
         ],
       ),
@@ -149,16 +173,40 @@ class _ViewCustomerBillScreenState extends State<ViewCustomerBillScreen> {
   Widget _buildSummaryBar() {
     return Container(
       width: double.infinity,
-      height: 60,
-      margin: const EdgeInsets.all(15),
+      padding: const EdgeInsets.symmetric(vertical: 18),
+      margin: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.secondaryBlue,
-        borderRadius: BorderRadius.circular(40),
+        gradient: LinearGradient(
+          colors: [AppTheme.primaryBlue.withOpacity(0.9), AppTheme.secondaryBlue.withOpacity(0.9)],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryBlue.withOpacity(0.2),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          )
+        ],
       ),
       child: Center(
-        child: Text(
-          'المطلوب : $_sumRequired دينار',
-          style: const TextStyle(color: Color(0xFF06F106), fontSize: 20, fontWeight: FontWeight.bold),
+        child: RichText(
+          text: TextSpan(
+            children: [
+              const TextSpan(
+                text: 'المجموع المطلوب: ',
+                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
+              ),
+              TextSpan(
+                text: '$_sumRequired دينار',
+                style: const TextStyle(
+                  color: Color(0xFF06F106),
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  shadows: [Shadow(color: Colors.black26, blurRadius: 2, offset: Offset(1, 1))],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -167,36 +215,43 @@ class _ViewCustomerBillScreenState extends State<ViewCustomerBillScreen> {
   Widget _buildExpandableBillCard(BillingItem bill) {
     bool isUnpaid = bill.payFlag == "0";
     return Container(
-      margin: const EdgeInsets.only(bottom: 2),
+      margin: const EdgeInsets.only(bottom: 12, left: 16, right: 16),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.grey.shade300, width: 0.5)),
+        color: AppTheme.surfaceWhite,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))
+        ],
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          iconColor: Colors.grey,
+          iconColor: AppTheme.primaryBlue,
+          collapsedIconColor: AppTheme.textGrey,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           title: Text(
             'فاتورة شهر : ${bill.bilIssuYm}',
-            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15, color: Colors.black87),
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppTheme.textDark),
           ),
           trailing: Text(
             bill.bilRemain,
             style: TextStyle(
-              color: isUnpaid ? const Color(0xFF06F106) : Colors.black,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
+              color: isUnpaid ? const Color(0xFF06F106) : AppTheme.textDark,
+              fontWeight: FontWeight.w900,
+              fontSize: 18,
             ),
           ),
           children: [
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(15),
-              color: Colors.grey.shade50,
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
               child: Column(
                 children: [
-                  _detailRow('القيمة الكلية', bill.bilTot),
-                  _detailRow('كمية الاستهلاك', '${bill.bilQty} (ك.و)'),
-                  _detailRow('تاريخ الفاتورة', bill.bilBilDate),
+                  const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                  const SizedBox(height: 15),
+                  _detailRow(Icons.account_balance_wallet_outlined, 'القيمة الكلية', bill.bilTot),
+                  _detailRow(Icons.speed_rounded, 'كمية الاستهلاك', '${bill.bilQty} (ك.و)'),
+                  _detailRow(Icons.calendar_today_rounded, 'تاريخ الفاتورة', bill.bilBilDate),
                 ],
               ),
             )
@@ -206,14 +261,20 @@ class _ViewCustomerBillScreenState extends State<ViewCustomerBillScreen> {
     );
   }
 
-  Widget _detailRow(String label, String value) {
+  Widget _detailRow(IconData icon, String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryBlue)),
+          Row(
+            children: [
+              Icon(icon, size: 16, color: AppTheme.textGrey),
+              const SizedBox(width: 8),
+              Text(label, style: const TextStyle(color: AppTheme.textGrey, fontSize: 13, fontWeight: FontWeight.w500)),
+            ],
+          ),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryBlue)),
         ],
       ),
     );

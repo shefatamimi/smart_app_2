@@ -73,10 +73,17 @@ class _ViewMeterEventsScreenState extends State<ViewMeterEventsScreen> {
   Widget _buildHeader() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 60, 20, 25),
+      padding: const EdgeInsets.fromLTRB(20, 60, 20, 30),
       decoration: const BoxDecoration(
-        color: AppTheme.secondaryBlue,
-        borderRadius: BorderRadius.only(bottomLeft: Radius.circular(35), bottomRight: Radius.circular(35)),
+        gradient: LinearGradient(
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+          colors: [AppTheme.primaryBlue, AppTheme.secondaryBlue],
+        ),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(40),
+          bottomRight: Radius.circular(40),
+        ),
       ),
       child: Column(
         children: [
@@ -87,10 +94,22 @@ class _ViewMeterEventsScreenState extends State<ViewMeterEventsScreen> {
                 icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 22),
                 onPressed: () => Navigator.pop(context),
               ),
+              // Circular Logo - Matching HomeScreen
               Container(
-                height: 70,
-                width: 70,
-                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                height: 80,
+                width: 80,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white.withOpacity(0.5), width: 3),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5),
+                    )
+                  ],
+                ),
                 child: ClipOval(
                   child: Padding(
                     padding: const EdgeInsets.all(8.0),
@@ -104,7 +123,12 @@ class _ViewMeterEventsScreenState extends State<ViewMeterEventsScreen> {
           const SizedBox(height: 15),
           const Text(
             'عرض إيفينت العداد',
-            style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+            ),
           ),
         ],
       ),
@@ -114,40 +138,55 @@ class _ViewMeterEventsScreenState extends State<ViewMeterEventsScreen> {
   Widget _buildDateSelector() {
     return Container(
       margin: const EdgeInsets.all(20),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: AppTheme.surfaceWhite,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.secondaryBlue.withOpacity(0.3), width: 1.5),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 15, offset: const Offset(0, 5))],
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 25,
+            offset: const Offset(0, 10),
+          )
+        ],
       ),
       child: Column(
         children: [
-          _dateField('تاريخ البداية', startDate, (d) => setState(() => startDate = d)),
-          const SizedBox(height: 15),
-          _dateField('تاريخ النهاية', endDate, (d) => setState(() => endDate = d)),
+          _dateField('تاريخ البداية', startDate, Icons.calendar_today_rounded, (d) => setState(() => startDate = d)),
+          const SizedBox(height: 16),
+          _dateField('تاريخ النهاية', endDate, Icons.event_available_rounded, (d) => setState(() => endDate = d)),
           const SizedBox(height: 25),
           ElevatedButton(
             onPressed: _handleSearch,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF3498DB),
+              backgroundColor: AppTheme.primaryBlue,
               foregroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 55),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-              elevation: 0,
+              minimumSize: const Size(double.infinity, 56),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              elevation: 4,
+              shadowColor: AppTheme.primaryBlue.withOpacity(0.3),
             ),
-            child: const Text('إستعلام', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            child: const Text(
+              'إستعلام عن الأحداث',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _dateField(String label, DateTime value, Function(DateTime) onPick) {
+  Widget _dateField(String label, DateTime value, IconData icon, Function(DateTime) onPick) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryBlue)),
-        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.only(right: 8, bottom: 8),
+          child: Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textGrey, fontSize: 13),
+          ),
+        ),
         InkWell(
           onTap: () async {
             final DateTime? picked = await showDatePicker(
@@ -160,15 +199,25 @@ class _ViewMeterEventsScreenState extends State<ViewMeterEventsScreen> {
           },
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 12),
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
             decoration: BoxDecoration(
-              border: Border.all(color: AppTheme.secondaryBlue.withOpacity(0.5)),
-              borderRadius: BorderRadius.circular(12),
+              color: AppTheme.backgroundGrey.withOpacity(0.8),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.grey.withOpacity(0.1)),
             ),
-            child: Text(
-              DateFormat('dd/MM/yyyy').format(value),
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            child: Row(
+              children: [
+                Icon(icon, color: AppTheme.secondaryBlue, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    DateFormat('dd/MM/yyyy').format(value),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppTheme.textDark),
+                  ),
+                ),
+                const SizedBox(width: 32), // Spacer to balance icon
+              ],
             ),
           ),
         ),
@@ -178,33 +227,52 @@ class _ViewMeterEventsScreenState extends State<ViewMeterEventsScreen> {
 
   Widget _buildEventCard(MeterEventItem event) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppTheme.surfaceWhite,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          )
+        ],
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: AppTheme.backgroundGrey, borderRadius: BorderRadius.circular(12)),
-            child: const Icon(Icons.event_note_rounded, color: AppTheme.secondaryBlue, size: 24),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.secondaryBlue.withOpacity(0.08),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.event_note_rounded, color: AppTheme.secondaryBlue, size: 26),
           ),
-          const SizedBox(width: 15),
+          const SizedBox(width: 18),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   event.eventDesc,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                    color: AppTheme.textDark,
+                  ),
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  event.dateTime,
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(Icons.access_time_rounded, size: 14, color: AppTheme.textGrey),
+                    const SizedBox(width: 6),
+                    Text(
+                      event.dateTime,
+                      style: const TextStyle(color: AppTheme.textGrey, fontSize: 13, fontWeight: FontWeight.w500),
+                    ),
+                  ],
                 ),
               ],
             ),

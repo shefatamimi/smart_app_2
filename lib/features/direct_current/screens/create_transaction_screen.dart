@@ -181,7 +181,16 @@ class _CreateTransactionScreenState extends State<CreateTransactionScreen> {
         child: DropdownButton<String>(
           value: _selectedCode,
           isExpanded: true,
-          items: _types.map((t) => DropdownMenuItem(value: t['id'], child: Text(t['name'] ?? ""))).toList(),
+          alignment: Alignment.centerRight,
+          hint: const Align(
+            alignment: Alignment.centerRight,
+            child: Text("اختر النوع..."),
+          ),
+          items: _types.map((t) => DropdownMenuItem(
+            value: t['id'], 
+            alignment: Alignment.centerRight,
+            child: Text(t['name'] ?? "", textAlign: TextAlign.right),
+          )).toList(),
           onChanged: (val) {
             setState(() {
               _selectedCode = val;

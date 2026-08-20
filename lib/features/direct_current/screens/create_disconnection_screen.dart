@@ -277,8 +277,16 @@ class _CreateDisconnectionScreenState extends State<CreateDisconnectionScreen> {
         child: DropdownButton<String>(
           value: items.any((i) => i['id'] == value) ? value : null,
           isExpanded: true,
-          hint: const Text("اختر من القائمة..."),
-          items: items.map((item) => DropdownMenuItem(value: item['id'], child: Text(item['name']!))).toList(),
+          alignment: Alignment.centerRight,
+          hint: const Align(
+            alignment: Alignment.centerRight,
+            child: Text("اختر من القائمة..."),
+          ),
+          items: items.map((item) => DropdownMenuItem(
+            value: item['id'], 
+            alignment: Alignment.centerRight,
+            child: Text(item['name']!, textAlign: TextAlign.right),
+          )).toList(),
           onChanged: onChanged,
         ),
       ),
