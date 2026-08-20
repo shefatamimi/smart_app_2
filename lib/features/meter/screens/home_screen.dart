@@ -915,19 +915,50 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_circle_left_outlined, color: Colors.white, size: 28),
-                  onPressed: _handleLogout,
-                ),
-                const SizedBox(width: 8),
-              ],
               leading: IconButton(
                 icon: const Icon(Icons.settings_outlined, color: Colors.white, size: 28),
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                  showModalBottomSheet(
+                    context: context,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                    ),
+                    builder: (context) => Directionality(
+                      textDirection: TextDirection.rtl,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              'إعدادات الحساب',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 20),
+                            ListTile(
+                              leading: const Icon(Icons.lock_reset_rounded, color: AppTheme.accentOrange),
+                              title: const Text('تغيير كلمة المرور'),
+                              onTap: () {
+                                Navigator.pop(context);
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                                );
+                              },
+                            ),
+                            ListTile(
+                              leading: const Icon(Icons.logout_rounded, color: AppTheme.accentRed),
+                              title: const Text('تسجيل الخروج'),
+                              onTap: () {
+                                Navigator.pop(context);
+                                _handleLogout();
+                              },
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                        ),
+                      ),
+                    ),
                   );
                 },
               ),
@@ -1331,28 +1362,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       },
                     ),
                   ], crossAxisCount: 3),
-
-                  const SizedBox(height: 20),
-
-                  _buildExpandablePanel(5, 'إعدادات الحساب', Icons.account_circle_rounded, [
-                    _buildFeatureAction(
-                      Icons.lock_reset_rounded, 
-                      'تغيير كلمة المرور', 
-                      AppTheme.accentOrange,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const SettingsScreen()),
-                        );
-                      },
-                    ),
-                    _buildFeatureAction(
-                      Icons.logout_rounded, 
-                      'تسجيل الخروج', 
-                      AppTheme.accentRed,
-                      onTap: _handleLogout,
-                    ),
-                  ], crossAxisCount: 2),
 
                   const SizedBox(height: 60),
                 ]),
