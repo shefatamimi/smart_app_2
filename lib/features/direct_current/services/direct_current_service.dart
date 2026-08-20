@@ -5,8 +5,106 @@ import 'package:flutter/foundation.dart';
 import 'package:smart_application/core/api_client.dart';
 import 'package:smart_application/core/app_constants.dart';
 import 'package:smart_application/features/direct_current/models/direct_current_item.dart';
+import 'package:smart_application/features/direct_current/models/dconn_trans_item.dart';
 
 class DirectCurrentService {
+  /// تحويل التاريخ إلى تنسيق Julian Date المعتمد في أوراكل (J)
+  static int toJulianDate(DateTime date) {
+    int year = date.year;
+    int month = date.month;
+    int day = date.day;
+
+    if (month <= 2) {
+      year -= 1;
+      month += 12;
+    }
+
+    int a = (year / 100).floor();
+    int b = 2 - a + (a / 4).floor();
+
+    int julian = (365.25 * (year + 4716)).floor() +
+        (30.6001 * (month + 1)).floor() +
+        day +
+        b -
+        1524;
+    return julian;
+  }
+
+  /// إستعلام حركات الوصل والفصل (GET_DISCONN_TRANS)
+  static Future<List<DconnTransItem>> getDisconnTransactions({
+    required DateTime date,
+    required String workshopId,
+  }) async {
+    try {
+      int julianDate = toJulianDate(date);
+      // DataType:4 للاستعلام عن حركات الوصل بناءً على التاريخ ورقم الورشة
+      // ملاحظة: تم استخدام الفاصلة (,) كما في كود Java الأصلي
+      String data = "DataType:4,Where: and dconn_conn_date = $julianDate and DCONN_TECN_conn_NO = $workshopId";
+      
+      debugPrint(">>> DISCONN INQUIRY REQ: $data");
+
+      String response = await ApiClient.makeSoapRequest(
+        AppConstants.baseUrl, 
+        "GET_DISCONN_TRANS", 
+        ApiClient.encryptRSA(data)
+      );
+
+      debugPrint(">>> DISCONN TRANS RAW RESPONSE: $response");
+
+      if (response.isEmpty || response.contains("fault")) return [];
+
+      xml.XmlDocument document = xml.XmlDocument.parse(response);
+      
+      // فك التغليف إذا كان الرد XML داخل String
+      final resultElement = document.descendants.whereType<xml.XmlElement>()
+          .where((e) => e.name.local.toLowerCase().contains("result")).firstOrNull;
+      
+      if (resultElement != null && resultElement.innerText.trim().startsWith("<")) {
+          try {
+            document = xml.XmlDocument.parse(resultElement.innerText.trim());
+          } catch (_) {}
+      }
+      
+      // البحث عن الحاوية الأساسية للبيانات أو الصفوف مباشرة
+      final allElements = document.descendants.whereType<xml.XmlElement>();
+      
+      // تحديد الصفوف (Rows) - نبحث عن أي عنصر يحتوي على مفاتيح DconnTransItem المعروفة
+      List<xml.XmlElement> rows = [];
+      for (var element in allElements) {
+        // إذا كان العنصر يحتوي على أطفال (أعمدة) وكان أحدها هو ID أو DCONN_NUM أو MTR_M_NUM
+        final childrenNames = element.children.whereType<xml.XmlElement>().map((e) => e.name.local.toUpperCase());
+        if (childrenNames.contains("ID") || 
+            childrenNames.contains("DCONN_NUM") || 
+            childrenNames.contains("MTR_M_NUM") ||
+            childrenNames.contains("DCONN_DATE")) {
+          
+          // نتأكد أننا لم نضف هذا الصف بالفعل (تجنب التكرار في حالة التداخل)
+          if (!rows.any((r) => r == element)) {
+            rows.add(element);
+          }
+        }
+      }
+
+      List<DconnTransItem> list = [];
+      for (var row in rows) {
+        Map<String, String> dataMap = {};
+        for (var child in row.children.whereType<xml.XmlElement>()) {
+          dataMap[child.name.local.toUpperCase()] = child.innerText.trim();
+        }
+        
+        if (dataMap.isNotEmpty) {
+          list.add(DconnTransItem.fromMap(dataMap));
+        }
+      }
+      
+      debugPrint(">>> Final Parsed ${list.length} disconn transactions");
+      return list;
+    } catch (e) {
+      debugPrint("GET DISCONN TRANS ERROR: $e");
+      return [];
+    }
+  }
+
   static Future<String> connTrans({
     required String meterNum,
     required String workshopId,

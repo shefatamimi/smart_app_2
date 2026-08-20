@@ -78,36 +78,42 @@ class MeterService {
 
         // 1. معلومات المشترك والعداد (مطابقة لـ HomeInfoAsyncCall.java)
         finalInfo['display_name'] = ApiClient.smartSearch(doc1, "CUSM_NAME");
-        finalInfo['display_id'] = subNum;
+        finalInfo['display_id'] = paddedCityId + paddedSubNum;
         finalInfo['display_meter'] = ApiClient.smartSearch(doc1, "MTR_M_NUM");
 
-        // 2. هاتف القارئ (RDRM_MOBILE_NO) مع إضافة الصفر كما في الجافا
+        // 2. هاتف القارئ والمشترك
         String rdrMobile = ApiClient.smartSearch(doc1, "RDRM_MOBILE_NO");
         finalInfo['display_mobile'] = (rdrMobile != "---" && rdrMobile.isNotEmpty) ? "0$rdrMobile" : "غير متوفر";
+        finalInfo['CUSM_TELEPHONE'] = ApiClient.smartSearch(doc1, "CUSM_TELEPHONE");
 
-        // 3. الفاز (FAZ)
+        // 3. الفاز (FAZ) ونوع العداد
         String fazVal = ApiClient.smartSearch(doc1, "FAZ");
         finalInfo['display_faz'] = fazVal != "---" ? "$fazVal فاز" : "غير متوفر";
-
-        // 4. نوع العداد (SMART)
         String smartVal = ApiClient.smartSearch(doc1, "SMART");
         finalInfo['display_smart'] = smartVal == "0" ? "غير ذكي" : "ذكي";
+        finalInfo['SMART'] = smartVal;
 
-        // 5. المنطقة (REGM_NAME) وموعد القراءة
+        // 4. المنطقة وموعد القراءة والموقع الجغرافي
         finalInfo['display_area'] = ApiClient.smartSearch(doc1, "REGM_NAME");
         finalInfo['reading_date'] = ApiClient.smartSearch(doc1, "READING_DATE");
+        finalInfo['POS_X'] = ApiClient.smartSearch(doc1, "POS_X");
+        finalInfo['POS_Y'] = ApiClient.smartSearch(doc1, "POS_Y");
 
-        // 6. الحالة
+        // 5. الحالة وتفاصيل الفصل (مهمة لشاشة إنشاء الوصل)
         finalInfo['state'] = ApiClient.smartSearch(doc1, "STATUS_DESC");
+        finalInfo['STATUS_DESC'] = finalInfo['state']!;
+        finalInfo['SEP_TYPE_DESC'] = ApiClient.smartSearch(doc1, "SEP_TYPE_DESC");
+        finalInfo['SEP_DATE'] = ApiClient.smartSearch(doc1, "SEP_DATE");
 
-        // 7. الفواتير والذمم المحسوبة بدقة
+        // 6. الفواتير والذمم المحسوبة بدقة (Logic: CalcSum)
         finalInfo['INVOICE_COUNT'] = unpaidCount.toString();
         finalInfo['display_inv_amt'] = totalSum.toStringAsFixed(3);
 
-        // قيم تقنية مخفية
-        finalInfo['MTR_CITY'] = cityId;
-        finalInfo['MTR_NUM'] = subNum;
+        // قيم تقنية مخفية للعمليات اللاحقة
+        finalInfo['MTR_CITY'] = paddedCityId;
+        finalInfo['MTR_NUM'] = paddedSubNum;
         finalInfo['MTR_KIND'] = ApiClient.smartSearch(doc1, "KIND");
+        finalInfo['MTR_NUM_ORIGINAL'] = subNum; 
 
         return finalInfo;
       }
@@ -313,6 +319,22 @@ class MeterService {
       return result?.innerText ?? "تم التوثيق بنجاح";
     } catch (e) {
       return "خطأ توثيق: $e";
+    }
+  }
+
+  /// تسجيل حدث في السيرفر (SmartMeterEvent) كما في كود Java الأصلي
+  static Future<void> logSmartMeterEvent(String meterNo, String userName, String eventDesc) async {
+    try {
+      String data = "meterNo:$meterNo,userName:$userName,eventDesc:$eventDesc";
+      debugPrint(">>> LOGGING EVENT: $eventDesc for $meterNo");
+      
+      await ApiClient.makeSoapRequest(
+        AppConstants.baseUrl, 
+        "SmartMeterEvent", 
+        ApiClient.encryptRSA(data)
+      );
+    } catch (e) {
+      debugPrint("LOG SMART METER EVENT ERROR: $e");
     }
   }
 }

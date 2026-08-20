@@ -17,6 +17,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import 'package:smart_application/features/direct_current/screens/connection_inquiry_screen.dart';
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -30,6 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = false;
   final TextEditingController _meterController = TextEditingController();
   final TextEditingController _subscriberController = TextEditingController();
+  final ScrollController _scrollController = ScrollController(); // للمساعدة في التمرير للنتائج
   Map<String, String>? _meterInfo;
   String _currentSearchId = "";
   String? _liveMeterState;
@@ -66,6 +69,33 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     } else {
       _showErrorSnackBar('يرجى الاستعلام عن عداد أولاً');
+    }
+  }
+
+  /// تسجيل الحدث والانتقال لشاشة الاستعلام (مطابق لكود Java الأصلي)
+  void _logAndNavigateToInquiry(String eventType) async {
+    final prefs = await SharedPreferences.getInstance();
+    String oracleUser = prefs.getString('ORACLE_USER') ?? "";
+    String meterNo = _meterController.text.trim();
+
+    // تسجيل حدث الاستعلام في السيرفر
+    if (meterNo.isNotEmpty && oracleUser.isNotEmpty) {
+      MeterService.logSmartMeterEvent(meterNo, oracleUser, eventType);
+    }
+
+    // الانتقال للشاشة وانتظار النتيجة
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const ConnectionInquiryScreen()),
+    );
+
+    // إذا تم اختيار معاملة من القائمة، يتم تعيين رقم العداد والبحث تلقائياً
+    if (result != null && result is String && mounted) {
+      setState(() {
+        _meterController.text = result;
+        _subscriberController.clear();
+      });
+      _handleSearch();
     }
   }
 
@@ -122,6 +152,15 @@ class _HomeScreenState extends State<HomeScreen> {
           _meterInfo = info;
           _showResult = true;
           _currentSearchId = targetMeterNum;
+        });
+        
+        // التمرير التلقائي لمكان عرض النتائج (HomeInfo) كما في الجافا
+        Future.delayed(const Duration(milliseconds: 300), () {
+          _scrollController.animateTo(
+            200, // الارتفاع التقريبي لبداية كرت النتائج
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeOut,
+          );
         });
       } else {
         throw 'فشل جلب تفاصيل العداد';
@@ -244,9 +283,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.1),
+                    color: Colors.orange.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(15),
-                    border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                    border: Border.all(color: Colors.orange.withOpacity(0.3)),
                   ),
                   child: Text(
                     '$voltage فولت',
@@ -745,6 +784,7 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Directionality(
         textDirection: TextDirection.rtl,
         child: CustomScrollView(
+          controller: _scrollController, // ربط وحدة التحكم
           physics: const BouncingScrollPhysics(),
           slivers: [
             // --- Premium Header with Logo ---
@@ -769,7 +809,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Positioned(
                         top: -30,
                         right: -30,
-                        child: CircleAvatar(radius: 80, backgroundColor: Colors.white.withValues(alpha: 0.05)),
+                        child: CircleAvatar(radius: 80, backgroundColor: Colors.white.withOpacity(0.05)),
                       ),
                       Center(
                         child: Column(
@@ -783,10 +823,10 @@ class _HomeScreenState extends State<HomeScreen> {
                               decoration: BoxDecoration(
                                 color: AppTheme.surfaceWhite,
                                 shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 4),
+                                border: Border.all(color: Colors.white.withOpacity(0.5), width: 4),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.2),
+                                    color: Colors.black.withOpacity(0.2),
                                     blurRadius: 20,
                                     offset: const Offset(0, 10),
                                   )
@@ -1130,13 +1170,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       Icons.list_alt_rounded, 
                       'إستعلام وصل', 
                       Colors.blueGrey,
-                      onTap: _handleSearch,
+                      onTap: () => _logAndNavigateToInquiry("Conn Inquiry"),
                     ),
                     _buildFeatureAction(
                       Icons.history_rounded, 
                       'إستعلام فصل', 
                       Colors.blueGrey,
-                      onTap: _handleSearch,
+                      onTap: () => _logAndNavigateToInquiry("Disconn Inquiry"),
                     ),
                     _buildFeatureAction(
                       Icons.assignment_outlined, 
@@ -1241,7 +1281,7 @@ class _HomeScreenState extends State<HomeScreen> {
         color: AppTheme.surfaceWhite,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 25, offset: const Offset(0, 10))
+          BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 25, offset: const Offset(0, 10))
         ],
       ),
       child: Column(
@@ -1258,7 +1298,7 @@ class _HomeScreenState extends State<HomeScreen> {
               minimumSize: const Size(double.infinity, 56),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               elevation: 4,
-              shadowColor: AppTheme.primaryBlue.withValues(alpha: 0.4),
+              shadowColor: AppTheme.primaryBlue.withOpacity(0.4),
             ),
             child: const Text('إستعلام عن البيانات', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
           ),
@@ -1270,9 +1310,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildPrettyInputField({required TextEditingController controller, required String label, required IconData icon}) {
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.backgroundGrey.withValues(alpha: 0.8),
+        color: AppTheme.backgroundGrey.withOpacity(0.8),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+        border: Border.all(color: Colors.grey.withOpacity(0.1)),
       ),
       child: TextField(
         controller: controller,
@@ -1282,7 +1322,12 @@ class _HomeScreenState extends State<HomeScreen> {
         decoration: InputDecoration(
           labelText: label,
           labelStyle: const TextStyle(color: AppTheme.textGrey, fontSize: 14),
-          prefixIcon: Icon(icon, color: AppTheme.secondaryBlue, size: 22),
+          prefixIcon: icon == Icons.qr_code_scanner_rounded 
+            ? IconButton(
+                icon: Icon(icon, color: AppTheme.secondaryBlue, size: 22),
+                onPressed: () => _showErrorSnackBar("جاري تفعيل ماسح الباركود..."),
+              )
+            : Icon(icon, color: AppTheme.secondaryBlue, size: 22),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
         ),
@@ -1297,9 +1342,9 @@ class _HomeScreenState extends State<HomeScreen> {
       decoration: BoxDecoration(
         color: AppTheme.surfaceWhite,
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: AppTheme.primaryBlue.withValues(alpha: 0.1)),
+        border: Border.all(color: AppTheme.primaryBlue.withOpacity(0.1)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 25, offset: const Offset(0, 12))
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 25, offset: const Offset(0, 12))
         ],
       ),
       child: Column(
@@ -1318,7 +1363,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: _getLiveStateColor().withValues(alpha: 0.1), 
+                  color: _getLiveStateColor().withOpacity(0.1), 
                   borderRadius: BorderRadius.circular(15)
                 ),
                 child: Row(
@@ -1340,6 +1385,10 @@ class _HomeScreenState extends State<HomeScreen> {
           _buildResultInfoRow(Icons.electric_meter_outlined, 'رقم العداد:', _meterInfo?['display_meter'] ?? 'غير متوفر'),
           _buildResultInfoRow(Icons.phone_android_rounded, 'هاتف القارئ:', _meterInfo?['display_mobile'] ?? 'غير متوفر'),
           _buildResultInfoRow(Icons.calendar_month_rounded, 'موعد القراءة:', _meterInfo?['reading_date'] ?? 'غير متوفر'),
+          _buildResultInfoRow(Icons.location_on_rounded, 'الموقع الجغرافي:', 
+              (_meterInfo?['POS_X'] != "---" && _meterInfo?['POS_Y'] != "---") 
+              ? "${_meterInfo?['POS_X']} , ${_meterInfo?['POS_Y']}" 
+              : 'غير متوفر'),
           const SizedBox(height: 15),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1371,7 +1420,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.secondaryBlue.withValues(alpha: 0.08),
+                backgroundColor: AppTheme.secondaryBlue.withOpacity(0.08),
                 foregroundColor: AppTheme.primaryBlue,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 elevation: 0,
@@ -1391,17 +1440,17 @@ class _HomeScreenState extends State<HomeScreen> {
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       decoration: BoxDecoration(
         color: isBtOff 
-            ? Colors.red.withValues(alpha: 0.05)
+            ? Colors.red.withOpacity(0.05)
             : _isProbeConnected 
-                ? const Color(0xFF06F106).withValues(alpha: 0.1) 
-                : Colors.grey.withValues(alpha: 0.05),
+                ? const Color(0xFF06F106).withOpacity(0.1) 
+                : Colors.grey.withOpacity(0.05),
         borderRadius: BorderRadius.circular(15),
         border: Border.all(
           color: isBtOff 
-              ? Colors.red.withValues(alpha: 0.3)
+              ? Colors.red.withOpacity(0.3)
               : _isProbeConnected 
-                  ? const Color(0xFF06F106).withValues(alpha: 0.3) 
-                  : Colors.grey.withValues(alpha: 0.2),
+                  ? const Color(0xFF06F106).withOpacity(0.3) 
+                  : Colors.grey.withOpacity(0.2),
           width: 1,
         ),
       ),
@@ -1499,7 +1548,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildModernStatBadge(IconData icon, String value, String label) {
     return Column(
       children: [
-        Icon(icon, size: 22, color: AppTheme.secondaryBlue.withValues(alpha: 0.7)),
+        Icon(icon, size: 22, color: AppTheme.secondaryBlue.withOpacity(0.7)),
         const SizedBox(height: 8),
         Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.textDark)),
         Text(label, style: const TextStyle(color: AppTheme.textGrey, fontSize: 11)),
@@ -1517,11 +1566,11 @@ class _HomeScreenState extends State<HomeScreen> {
         color: AppTheme.surfaceWhite,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: expanded ? AppTheme.primaryBlue : Colors.grey.withValues(alpha: 0.15),
+          color: expanded ? AppTheme.primaryBlue : Colors.grey.withOpacity(0.15),
           width: expanded ? 1.5 : 1,
         ),
         boxShadow: expanded
-            ? [BoxShadow(color: AppTheme.primaryBlue.withValues(alpha: 0.08), blurRadius: 15, offset: const Offset(0, 8))]
+            ? [BoxShadow(color: AppTheme.primaryBlue.withOpacity(0.08), blurRadius: 15, offset: const Offset(0, 8))]
             : null,
       ),
       child: Column(
@@ -1538,7 +1587,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: expanded ? AppTheme.primaryBlue.withValues(alpha: 0.08) : AppTheme.backgroundGrey,
+                      color: expanded ? AppTheme.primaryBlue.withOpacity(0.08) : AppTheme.backgroundGrey,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(icon, size: 22, color: expanded ? AppTheme.primaryBlue : AppTheme.textGrey),
@@ -1560,7 +1609,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     duration: const Duration(milliseconds: 300),
                     child: Icon(
                       Icons.keyboard_arrow_down_rounded,
-                      color: expanded ? AppTheme.primaryBlue : AppTheme.textGrey.withValues(alpha: 0.8),
+                      color: expanded ? AppTheme.primaryBlue : AppTheme.textGrey.withOpacity(0.8),
                     ),
                   ),
                 ],
@@ -1613,7 +1662,7 @@ class _HomeScreenState extends State<HomeScreen> {
         color: AppTheme.surfaceWhite,
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4)),
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
         ],
       ),
       child: Material(
@@ -1627,7 +1676,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.08),
+                  color: color.withOpacity(0.08),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(icon, color: color, size: 25),
@@ -1647,7 +1696,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 6),
-              Container(width: 25, height: 2, decoration: BoxDecoration(color: color.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(1))),
+              Container(width: 25, height: 2, decoration: BoxDecoration(color: color.withOpacity(0.2), borderRadius: BorderRadius.circular(1))),
             ],
           ),
         ),
