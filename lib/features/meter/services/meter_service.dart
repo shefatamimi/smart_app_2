@@ -272,14 +272,47 @@ class MeterService {
 
       final document = xml.XmlDocument.parse(response);
       
-      // نبحث عن NewDataSet الذي يحتوي على سجلات الفواتير
-      final dataSet = document.descendants.whereType<xml.XmlElement>()
-          .firstWhere((e) => e.name.local.toLowerCase() == "newdataset", 
-          orElse: () => document.rootElement);
+      // 1. محاولة استخراج النتيجة من وسم GetMeterBillingResult
+      final resultElement = document.descendants.whereType<xml.XmlElement>()
+          .where((e) => e.name.local.toLowerCase() == "getmeterbillingresult")
+          .firstOrNull;
 
-      final rows = dataSet.children.whereType<xml.XmlElement>();
+      String innerXml = resultElement?.innerText ?? "";
       
-      if (rows.isEmpty) return "لا توجد سجلات فواتير تقنية لهذه الفترة.";
+      // 2. إذا كانت النتيجة تحتوي على XML (مثل NewDataSet) نقوم بتحليلها
+      xml.XmlDocument dataDoc;
+      if (innerXml.contains("<")) {
+        dataDoc = xml.XmlDocument.parse(innerXml);
+      } else {
+        dataDoc = document;
+      }
+
+      // 3. البحث عن الجداول (Table أو NewDataSet)
+      final rows = dataDoc.descendants.whereType<xml.XmlElement>()
+          .where((e) => e.name.local.toLowerCase() == "table");
+      
+      if (rows.isEmpty) {
+        // تجربة البحث عن أي عناصر تحت NewDataSet إذا لم نجد Table
+        final dataSet = dataDoc.descendants.whereType<xml.XmlElement>()
+            .where((e) => e.name.local.toLowerCase() == "newdataset")
+            .firstOrNull;
+        
+        if (dataSet != null && dataSet.children.whereType<xml.XmlElement>().isNotEmpty) {
+          String result = "";
+          for (var row in dataSet.children.whereType<xml.XmlElement>()) {
+            String rowText = "";
+            for (var child in row.children.whereType<xml.XmlElement>()) {
+              rowText += "${child.name.local}: ${child.innerText.trim()}\n";
+            }
+            if (rowText.isNotEmpty) {
+              result += "$rowText\n-------------------\n\n";
+            }
+          }
+          return result;
+        }
+        
+        return innerXml.isNotEmpty ? innerXml : "لا توجد سجلات فواتير تقنية لهذه الفترة.";
+      }
 
       String result = "";
       for (var row in rows) {
@@ -292,7 +325,7 @@ class MeterService {
         }
       }
       
-      return result.isNotEmpty ? result : "رد فارغ من السيرفر";
+      return result.isNotEmpty ? result : "رد غير معروف من السيرفر";
     } catch (e) {
       debugPrint("METER BILLING ERROR: $e");
       return "حدث خطأ أثناء جلب الفواتير: $e";

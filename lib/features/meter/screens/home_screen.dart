@@ -1008,14 +1008,29 @@ class _HomeScreenState extends State<HomeScreen> {
                       Icons.receipt_long_rounded, 
                       'فواتير العداد', 
                       Colors.indigo,
-                      onTap: () {
+                      onTap: () async {
                         if (_meterInfo != null) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ViewMeterBillingScreen(meterInfo: _meterInfo!),
-                            ),
-                          );
+                          final prefs = await SharedPreferences.getInstance();
+                          String oracleUser = prefs.getString('ORACLE_USER') ?? "";
+                          String meterNo = _meterInfo!['display_meter'] ?? "";
+                          String kind = _meterInfo!['MTR_KIND'] ?? "";
+
+                          // 1. تسجيل الحدث في السيرفر كما في الجافا
+                          if (meterNo.isNotEmpty && oracleUser.isNotEmpty) {
+                            MeterService.logSmartMeterEvent(meterNo, oracleUser, "Remote Meter Bills");
+                          }
+
+                          // 2. التحقق من نوع العداد كما في الجافا (متاح لعدادات Holley)
+                          if (kind.toUpperCase().startsWith("HOL")) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ViewMeterBillingScreen(meterInfo: _meterInfo!),
+                              ),
+                            );
+                          } else {
+                            _showErrorSnackBar("هذه الميزة متاحة فقط لعدادات Holley حالياً");
+                          }
                         } else {
                           _showErrorSnackBar('يرجى الاستعلام عن عداد أولاً');
                         }

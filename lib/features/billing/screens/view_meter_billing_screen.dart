@@ -97,8 +97,9 @@ class _ViewMeterBillingScreenState extends State<ViewMeterBillingScreen> {
                 children: [
                   const Text('الفترة الزمنية:', style: TextStyle(fontWeight: FontWeight.bold)),
                   Text(
-                    '${DateFormat('yyyy/MM/dd').format(_fromDate)} - ${DateFormat('yyyy/MM/dd').format(_toDate)}',
-                    style: const TextStyle(color: AppTheme.primaryBlue, fontWeight: FontWeight.bold),
+                    '${DateFormat('yyyy/MM/dd').format(_fromDate)}  ←  ${DateFormat('yyyy/MM/dd').format(_toDate)}',
+                    textDirection: ui.TextDirection.ltr,
+                    style: const TextStyle(color: AppTheme.primaryBlue, fontWeight: FontWeight.bold, fontSize: 15),
                   ),
                 ],
               ),
