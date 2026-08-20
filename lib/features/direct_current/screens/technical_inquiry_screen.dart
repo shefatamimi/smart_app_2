@@ -3,33 +3,25 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_application/features/direct_current/services/direct_current_service.dart';
-import 'package:smart_application/features/direct_current/models/dconn_trans_item.dart';
+import 'package:smart_application/features/direct_current/models/technical_transaction_item.dart';
 import 'package:smart_application/core/theme/app_theme.dart';
 
-class ConnectionInquiryScreen extends StatefulWidget {
-  final bool isDisconnection;
-  const ConnectionInquiryScreen({super.key, this.isDisconnection = false});
+class TechnicalInquiryScreen extends StatefulWidget {
+  const TechnicalInquiryScreen({super.key});
 
   @override
-  State<ConnectionInquiryScreen> createState() => _ConnectionInquiryScreenState();
+  State<TechnicalInquiryScreen> createState() => _TechnicalInquiryScreenState();
 }
 
-class _ConnectionInquiryScreenState extends State<ConnectionInquiryScreen> {
+class _TechnicalInquiryScreenState extends State<TechnicalInquiryScreen> {
   DateTime selectedDate = DateTime.now();
-  List<DconnTransItem> _transactions = [];
+  List<TechnicalTransactionItem> _transactions = [];
   bool _isLoading = false;
 
   Future<void> _handleSearch() async {
     final prefs = await SharedPreferences.getInstance();
-    
-    // التحقق من الإعدادات كما في كود الجافا
-    String oracleUser = prefs.getString('ORACLE_USER') ?? "0";
     String workshopId = prefs.getString('SYS_MINOR') ?? "0";
 
-    if (oracleUser == "0" || oracleUser.isEmpty) {
-      _showSnackBar("لا يوجد رقم مستخدم لغايات الفصل و الوصل", AppTheme.accentRed);
-      return;
-    }
     if (workshopId == "0" || workshopId.isEmpty) {
       _showSnackBar("لا يوجد رقم ورشة", AppTheme.accentRed);
       return;
@@ -37,10 +29,9 @@ class _ConnectionInquiryScreenState extends State<ConnectionInquiryScreen> {
 
     setState(() => _isLoading = true);
     
-    final results = await DirectCurrentService.getDisconnTransactions(
+    final results = await DirectCurrentService.getTechnicalTransactions(
       date: selectedDate,
       workshopId: workshopId,
-      isDisconnection: widget.isDisconnection,
     );
     
     if (mounted) {
@@ -48,12 +39,15 @@ class _ConnectionInquiryScreenState extends State<ConnectionInquiryScreen> {
         _transactions = results;
         _isLoading = false;
       });
+      if (results.isEmpty) {
+        _showSnackBar("لا يوجد معاملات لهذا التاريخ", AppTheme.accentOrange);
+      }
     }
   }
 
   void _showSnackBar(String msg, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: color),
+      SnackBar(content: Text(msg, textAlign: TextAlign.right), backgroundColor: color),
     );
   }
 
@@ -93,22 +87,18 @@ class _ConnectionInquiryScreenState extends State<ConnectionInquiryScreen> {
         color: AppTheme.primaryBlue,
         borderRadius: BorderRadius.only(bottomLeft: Radius.circular(35), bottomRight: Radius.circular(35)),
       ),
-      child: Column(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 22),
-                onPressed: () => Navigator.pop(context),
-              ),
-              Text(
-                widget.isDisconnection ? 'إستعلام حركات فصل' : 'إستعلام حركات وصل',
-                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(width: 40),
-            ],
+          IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 22),
+            onPressed: () => Navigator.pop(context),
           ),
+          const Text(
+            'إستعلام معاملات',
+            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(width: 40),
         ],
       ),
     );
@@ -125,7 +115,7 @@ class _ConnectionInquiryScreenState extends State<ConnectionInquiryScreen> {
       ),
       child: Column(
         children: [
-          const Text("تاريخ الحركة", style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryBlue)),
+          const Text("تاريخ الإضافة", style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryBlue)),
           const SizedBox(height: 10),
           InkWell(
             onTap: () async {
@@ -167,7 +157,7 @@ class _ConnectionInquiryScreenState extends State<ConnectionInquiryScreen> {
     );
   }
 
-  Widget _buildTransactionCard(DconnTransItem item) {
+  Widget _buildTransactionCard(TechnicalTransactionItem item) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -180,8 +170,8 @@ class _ConnectionInquiryScreenState extends State<ConnectionInquiryScreen> {
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
           onTap: () {
-            // عند النقر يتم إرجاع رقم العداد أو الاشتراك للشاشة السابقة كما في الجافا
-            Navigator.pop(context, item.mtrMNum);
+            // إرجاع رقم العداد للشاشة الرئيسية للبحث عنه
+            Navigator.pop(context, item.mtrNum);
           },
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -190,22 +180,24 @@ class _ConnectionInquiryScreenState extends State<ConnectionInquiryScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.electric_meter, color: AppTheme.primaryBlue, size: 20),
+                    const Icon(Icons.assignment_turned_in_rounded, color: AppTheme.primaryBlue, size: 20),
                     const SizedBox(width: 8),
-                    Text("رقم العداد: ${item.mtrMNum}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    const Spacer(),
-                    Text(item.connDate, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                    Expanded(
+                      child: Text(
+                        item.opTypeDesc,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                    ),
+                    Text(item.entryDate, style: const TextStyle(color: Colors.grey, fontSize: 11)),
                   ],
                 ),
                 const Divider(),
-                _buildInfoRow(Icons.numbers, "رقم الإشتراك", item.subscriptionNumber),
-                _buildInfoRow(Icons.person, "المشترك", item.cusmName),
-                _buildInfoRow(Icons.calendar_month, "تاريخ الحركة", item.connDate),
-                _buildInfoRow(Icons.category, "نوع الحركة", item.dconnKind.isEmpty ? "غير محدد" : item.dconnKind),
-                _buildInfoRow(Icons.payments_outlined, "حالة الدفع", item.state.isEmpty ? "غير متوفر" : item.state),
-                _buildInfoRow(Icons.engineering, "الورشة", item.workshopName),
-                if (item.notes.isNotEmpty && item.notes != "---")
-                  _buildInfoRow(Icons.note, "ملاحظات", item.notes),
+                _buildInfoRow(Icons.electric_meter, "رقم العداد", item.mtrNum),
+                if (item.notes.isNotEmpty && item.notes != "anyType{}")
+                  _buildInfoRow(Icons.note_alt_outlined, "الملاحظات", item.notes),
+                _buildInfoRow(Icons.person_outline, "رقم المستخدم", item.userId),
+                if (item.lat.isNotEmpty && item.lat != "0")
+                  _buildInfoRow(Icons.location_on_outlined, "الموقع", "${item.lat}, ${item.lng}"),
               ],
             ),
           ),
@@ -218,6 +210,7 @@ class _ConnectionInquiryScreenState extends State<ConnectionInquiryScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, size: 16, color: Colors.grey),
           const SizedBox(width: 8),
@@ -233,9 +226,9 @@ class _ConnectionInquiryScreenState extends State<ConnectionInquiryScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.search_off, size: 60, color: Colors.grey[300]),
+          Icon(Icons.assignment_late_outlined, size: 60, color: Colors.grey[300]),
           const SizedBox(height: 10),
-          const Text('لا توجد حركات مسجلة لهذا التاريخ', style: TextStyle(color: Colors.grey)),
+          const Text('لا توجد معاملات مسجلة', style: TextStyle(color: Colors.grey)),
         ],
       ),
     );

@@ -6,6 +6,7 @@ import 'package:smart_application/features/direct_current/screens/direct_current
 import 'package:smart_application/features/billing/screens/view_customer_bill_screen.dart';
 import 'package:smart_application/features/meter/screens/view_meter_events_screen.dart';
 import 'package:smart_application/features/meter/screens/create_connection_screen.dart';
+import 'package:smart_application/features/meter/screens/add_notes_screen.dart';
 import 'package:smart_application/features/meter/screens/sync_data_screen.dart';
 import 'package:smart_application/features/meter/screens/network_configuration_screen.dart';
 import 'package:smart_application/features/billing/screens/view_meter_billing_screen.dart';
@@ -18,6 +19,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import 'package:smart_application/features/direct_current/screens/connection_inquiry_screen.dart';
+import 'package:smart_application/features/direct_current/screens/technical_inquiry_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -77,6 +79,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final prefs = await SharedPreferences.getInstance();
     String oracleUser = prefs.getString('ORACLE_USER') ?? "";
     String meterNo = _meterController.text.trim();
+    
+    bool isDisconn = eventType.contains("Disconn");
 
     // تسجيل حدث الاستعلام في السيرفر
     if (meterNo.isNotEmpty && oracleUser.isNotEmpty) {
@@ -86,10 +90,39 @@ class _HomeScreenState extends State<HomeScreen> {
     // الانتقال للشاشة وانتظار النتيجة
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const ConnectionInquiryScreen()),
+      MaterialPageRoute(
+        builder: (context) => ConnectionInquiryScreen(isDisconnection: isDisconn),
+      ),
     );
 
     // إذا تم اختيار معاملة من القائمة، يتم تعيين رقم العداد والبحث تلقائياً
+    if (result != null && result is String && mounted) {
+      setState(() {
+        _meterController.text = result;
+        _subscriberController.clear();
+      });
+      _handleSearch();
+    }
+  }
+
+  /// تسجيل الحدث والانتقال لشاشة استعلام المعاملات التقنية
+  void _logAndNavigateToTechnicalInquiry() async {
+    final prefs = await SharedPreferences.getInstance();
+    String oracleUser = prefs.getString('ORACLE_USER') ?? "";
+    String meterNo = _meterController.text.trim();
+
+    // تسجيل حدث الاستعلام في السيرفر
+    if (meterNo.isNotEmpty && oracleUser.isNotEmpty) {
+      MeterService.logSmartMeterEvent(meterNo, oracleUser, "Process Inquiry");
+    }
+
+    // الانتقال للشاشة وانتظار النتيجة
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const TechnicalInquiryScreen()),
+    );
+
+    // إذا تم اختيار معاملة، يتم تعيين رقم العداد والبحث تلقائياً
     if (result != null && result is String && mounted) {
       setState(() {
         _meterController.text = result;
@@ -1182,20 +1215,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       Icons.assignment_outlined, 
                       'إستعلام معاملات', 
                       Colors.blueGrey,
-                      onTap: () {
-                        if (_meterInfo != null) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => DirectCurrentManagementScreen(meterInfo: _meterInfo!),
-                            ),
-                          );
-                        } else {
-                          _showErrorSnackBar('يرجى الاستعلام عن عداد أولاً');
-                        }
-                      },
+                      onTap: _logAndNavigateToTechnicalInquiry,
                     ),
-                    _buildFeatureAction(Icons.format_list_bulleted_rounded, 'حركات التوصيل', Colors.blueGrey),
+                    _buildFeatureAction(
+                      Icons.format_list_bulleted_rounded, 
+                      'حركات التوصيل', 
+                      Colors.blueGrey,
+                      onTap: () => _logAndNavigateToInquiry("Conn Inquiry"),
+                    ),
                     _buildFeatureAction(
                       Icons.sync_rounded, 
                       'مزامنة الحركات', 
@@ -1209,7 +1236,23 @@ class _HomeScreenState extends State<HomeScreen> {
                         );
                       },
                     ),
-                    _buildFeatureAction(Icons.wifi_off_rounded, 'فاقد الاتصال', AppTheme.accentRed),
+                    _buildFeatureAction(
+                      Icons.wifi_off_rounded, 
+                      'فاقد الاتصال', 
+                      AppTheme.accentRed,
+                      onTap: () {
+                        if (_meterInfo != null) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => AddNotesScreen(meterInfo: _meterInfo!),
+                            ),
+                          );
+                        } else {
+                          _showErrorSnackBar('يرجى الاستعلام عن عداد أولاً');
+                        }
+                      },
+                    ),
                   ], crossAxisCount: 3),
 
                   const SizedBox(height: 20),

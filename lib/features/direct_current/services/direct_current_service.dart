@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io' as io;
 import 'package:http/http.dart' as http;
 import 'package:xml/xml.dart' as xml;
 import 'package:flutter/foundation.dart';
@@ -6,6 +7,7 @@ import 'package:smart_application/core/api_client.dart';
 import 'package:smart_application/core/app_constants.dart';
 import 'package:smart_application/features/direct_current/models/direct_current_item.dart';
 import 'package:smart_application/features/direct_current/models/dconn_trans_item.dart';
+import 'package:smart_application/features/direct_current/models/technical_transaction_item.dart';
 
 class DirectCurrentService {
   /// تحويل التاريخ إلى تنسيق Julian Date المعتمد في أوراكل (J)
@@ -34,14 +36,18 @@ class DirectCurrentService {
   static Future<List<DconnTransItem>> getDisconnTransactions({
     required DateTime date,
     required String workshopId,
+    bool isDisconnection = false,
   }) async {
     try {
       int julianDate = toJulianDate(date);
-      // DataType:4 للاستعلام عن حركات الوصل بناءً على التاريخ ورقم الورشة
-      // ملاحظة: تم استخدام الفاصلة (,) كما في كود Java الأصلي
-      String data = "DataType:4,Where: and dconn_conn_date = $julianDate and DCONN_TECN_conn_NO = $workshopId";
       
-      debugPrint(">>> DISCONN INQUIRY REQ: $data");
+      // اختيار الحقول بناءً على نوع الاستعلام (فصل أو وصل) كما في كود Java الأصلي
+      String dateField = isDisconnection ? "DCONN_DATE" : "dconn_conn_date";
+      String techField = isDisconnection ? "DCONN_TECN_NO" : "DCONN_TECN_conn_NO";
+      
+      String data = "DataType:4,Where: and $dateField = $julianDate and $techField = $workshopId";
+      
+      debugPrint(">>> DISCONN INQUIRY REQ (isDisconn: $isDisconnection): $data");
 
       String response = await ApiClient.makeSoapRequest(
         AppConstants.baseUrl, 
@@ -101,6 +107,72 @@ class DirectCurrentService {
       return list;
     } catch (e) {
       debugPrint("GET DISCONN TRANS ERROR: $e");
+      return [];
+    }
+  }
+
+  /// إستعلام المعاملات التقنية (GET_CUST_CONN_OPRATION_OTHERS)
+  static Future<List<TechnicalTransactionItem>> getTechnicalTransactions({
+    required DateTime date,
+    required String workshopId,
+  }) async {
+    try {
+      // تنسيق التاريخ ddMMyyyy كما في كود Java الأصلي (replaceAll("/", ""))
+      String formattedDate = "${date.day.toString().padLeft(2, '0')}${date.month.toString().padLeft(2, '0')}${date.year}";
+      
+      String data = "DataType:5,Where: and INSERT_DATE = '$formattedDate' and WRKSHP_ID = $workshopId";
+      
+      debugPrint(">>> TECHNICAL PROCESS INQUIRY REQ: $data");
+
+      String response = await ApiClient.makeSoapRequest(
+        AppConstants.baseUrl, 
+        "GET_CUST_CONN_OPRATION_OTHERS", 
+        ApiClient.encryptRSA(data)
+      );
+
+      debugPrint(">>> TECHNICAL PROCESS RAW RESPONSE: $response");
+
+      if (response.isEmpty || response.contains("fault")) return [];
+
+      xml.XmlDocument document = xml.XmlDocument.parse(response);
+      
+      // فك التغليف إذا كان الرد XML داخل String
+      final resultElement = document.descendants.whereType<xml.XmlElement>()
+          .where((e) => e.name.local.toLowerCase().contains("result")).firstOrNull;
+      
+      if (resultElement != null && resultElement.innerText.trim().startsWith("<")) {
+          try {
+            document = xml.XmlDocument.parse(resultElement.innerText.trim());
+          } catch (_) {}
+      }
+      
+      // البحث عن الصفوف بمرونة
+      final allElements = document.descendants.whereType<xml.XmlElement>();
+      List<xml.XmlElement> rows = [];
+      for (var element in allElements) {
+        final childrenNames = element.children.whereType<xml.XmlElement>().map((e) => e.name.local.toUpperCase());
+        if (childrenNames.contains("OP_TYPE_TEXT") || childrenNames.contains("MTR_NUM") || childrenNames.contains("NOTE")) {
+          if (!rows.any((r) => r == element)) {
+            rows.add(element);
+          }
+        }
+      }
+
+      List<TechnicalTransactionItem> list = [];
+      for (var row in rows) {
+        Map<String, String> dataMap = {};
+        for (var child in row.children.whereType<xml.XmlElement>()) {
+          dataMap[child.name.local.toUpperCase()] = child.innerText.trim();
+        }
+        if (dataMap.isNotEmpty) {
+          list.add(TechnicalTransactionItem.fromMap(dataMap));
+        }
+      }
+      
+      debugPrint(">>> Final Parsed ${list.length} technical transactions");
+      return list;
+    } catch (e) {
+      debugPrint("GET TECHNICAL TRANS ERROR: $e");
       return [];
     }
   }
@@ -483,6 +555,101 @@ class DirectCurrentService {
     }
   }
 
+  /// جلب أنواع الملاحظات (Note Types) - DataType:49, SYSMajor:886 كما في كود Java
+  static Future<List<Map<String, String>>> getNoteTypes() async {
+    try {
+      String data = "DataType:49,SYSMajor:886";
+      String response = await ApiClient.makeSoapRequest(
+          AppConstants.baseUrl, "GetGenericsDataTable", ApiClient.encryptRSA(data));
+
+      if (response.isEmpty) return [];
+      xml.XmlDocument document = xml.XmlDocument.parse(response);
+      
+      final allElements = document.descendants.whereType<xml.XmlElement>();
+      List<Map<String, String>> list = [];
+      Set<String> uniqueIds = {}; 
+
+      for (var element in allElements) {
+        final majorNode = element.descendants.whereType<xml.XmlElement>()
+            .where((e) => e.name.local.toUpperCase() == 'SYS_MAJOR').firstOrNull;
+        final minorNode = element.descendants.whereType<xml.XmlElement>()
+            .where((e) => e.name.local.toUpperCase() == 'SYS_MINOR').firstOrNull;
+        final descNode = element.descendants.whereType<xml.XmlElement>()
+            .where((e) => e.name.local.toUpperCase() == 'SYS_DESC').firstOrNull;
+
+        if (minorNode != null && descNode != null) {
+          String major = majorNode?.innerText.trim() ?? "0";
+          String minor = minorNode.innerText.trim();
+          String desc = descNode.innerText.trim();
+
+          if (minor.isNotEmpty && minor != "anyType{}" && !uniqueIds.contains(minor)) {
+            list.add({
+              "major": major,
+              "id": minor, 
+              "name": desc
+            });
+            uniqueIds.add(minor);
+          }
+        }
+      }
+      return list;
+    } catch (e) {
+      debugPrint("GET NOTE TYPES ERROR: $e");
+      return [];
+    }
+  }
+
+  /// تحديث حالة العداد (فاقد اتصال / ملاحظات) - UPDATE_SIM_MNG_MASTER
+  static Future<String> updateSimMngMaster({
+    required int id,
+    required int status,
+    required String empNo,
+    required String empName,
+    required String meter,
+    required int type,
+  }) async {
+    try {
+      int userId = int.tryParse(empNo.trim()) ?? 0;
+      
+      String soapEnvelope = '''
+<v:Envelope xmlns:v="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="http://tempuri.org/">
+   <v:Header/>
+   <v:Body>
+      <tem:UPDATE_SIM_MNG_MASTER>
+         <tem:iID>$id</tem:iID>
+         <tem:iSTATUS>$status</tem:iSTATUS>
+         <tem:iUPDATE_USERID>$userId</tem:iUPDATE_USERID>
+         <tem:sUPDATE_USERNAME>$empName</tem:sUPDATE_USERNAME>
+         <tem:iDataType>$type</tem:iDataType>
+         <tem:sPROG>$meter</tem:sPROG>
+         <tem:sSIM_REPLACE></tem:sSIM_REPLACE>
+      </tem:UPDATE_SIM_MNG_MASTER>
+   </v:Body>
+</v:Envelope>''';
+
+      debugPrint(">>> UPDATE SIM MNG MASTER REQ: meter=$meter, status=$status");
+
+      final response = await http.post(
+        Uri.parse(AppConstants.baseUrl),
+        headers: {
+          "Content-Type": "text/xml; charset=utf-8",
+          "SOAPAction": "http://tempuri.org/IBillingWcfsrv/UPDATE_SIM_MNG_MASTER"
+        },
+        body: utf8.encode(soapEnvelope)
+      ).timeout(const Duration(seconds: 45));
+
+      if (response.statusCode == 200) {
+        final document = xml.XmlDocument.parse(response.body);
+        final result = document.findAllElements("UPDATE_SIM_MNG_MASTERResult").firstOrNull;
+        return result?.innerText ?? "0";
+      }
+      return "0";
+    } catch (e) {
+      debugPrint("UPDATE SIM MNG MASTER ERROR: $e");
+      return "0";
+    }
+  }
+
   /// إرسال المعاملة الفعلية (InsertProccess) كما في كود Java الأصلي
   static Future<String> insertProcess({
     required String meterNum,
@@ -580,6 +747,22 @@ class DirectCurrentService {
     } catch (e) {
       debugPrint("GET GENERICS CRITICAL ERROR: $dataType -> $e");
       return [];
+    }
+  }
+
+  /// حفظ الحركة محلياً في ملف نصي في مجلد Downloads (كما في الجافا)
+  static Future<bool> saveOfflineTransaction(String data, bool isConnection) async {
+    try {
+      String fileName = isConnection ? "SyncData.txt" : "SyncData2.txt";
+      String path = "/storage/emulated/0/Download/$fileName";
+      final file = io.File(path);
+      
+      await file.writeAsString(data);
+      debugPrint(">>> Transaction Saved Offline: $path");
+      return true;
+    } catch (e) {
+      debugPrint(">>> Save Offline Error: $e");
+      return false;
     }
   }
 }

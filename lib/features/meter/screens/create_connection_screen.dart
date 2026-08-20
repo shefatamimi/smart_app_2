@@ -63,20 +63,61 @@ class _CreateConnectionScreenState extends State<CreateConnectionScreen> {
 
       if (mounted) {
         setState(() => _isProcessing = false);
-        _showResult(result);
         
-        // إذا نجحت العملية، نعود للشاشة السابقة
         if (result.contains("نجاح") || result.contains("تم")) {
+          _showResult(result);
           Navigator.pop(context);
+        } else {
+          _showOfflineSaveDialog(
+            "strMTR_NUM:${widget.meterInfo['display_meter']},intWorkshopID:$workshopId,strWorkshopName:$workshopName,strOraUserName:$oracleUser,CityId:${widget.meterInfo['MTR_CITY']},CustId:${widget.meterInfo['MTR_NUM']},Lat:0.0,Lng:0.0",
+            true,
+            result
+          );
         }
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isProcessing = false);
-        _showResult("خطأ: $e");
+        final prefs = await SharedPreferences.getInstance();
+        _showOfflineSaveDialog(
+          "strMTR_NUM:${widget.meterInfo['display_meter']},intWorkshopID:${prefs.getString('SYS_MINOR')},strWorkshopName:${prefs.getString('SYS_DESC')},strOraUserName:${prefs.getString('ORACLE_USER')},CityId:${widget.meterInfo['MTR_CITY']},CustId:${widget.meterInfo['MTR_NUM']},Lat:0.0,Lng:0.0",
+          true,
+          e.toString()
+        );
       }
     }
   }
+
+  void _showOfflineSaveDialog(String rawData, bool isConnection, String error) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Directionality(
+        textDirection: ui.TextDirection.rtl,
+        child: AlertDialog(
+          title: const Text('فشل الاتصال بالسيرفر'),
+          content: Text('حدث خطأ: $error\n\nهل تريد حفظ الحركة محلياً للمزامنة لاحقاً؟'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentGreen, foregroundColor: Colors.white),
+              onPressed: () async {
+                Navigator.pop(ctx);
+                bool saved = await DirectCurrentService.saveOfflineTransaction(rawData, isConnection);
+                if (saved) {
+                  _showResult("تم حفظ الحركة محلياً بنجاح");
+                  if (mounted) Navigator.pop(context);
+                } else {
+                  _showResult("فشل حفظ الحركة محلياً");
+                }
+              },
+              child: const Text('حفظ محلياً'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
 
   void _showResult(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(

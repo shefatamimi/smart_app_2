@@ -6,6 +6,7 @@ import 'package:smart_application/features/direct_current/services/direct_curren
 import 'package:smart_application/features/meter/models/sync_data_item.dart';
 import 'package:smart_application/core/theme/app_theme.dart';
 import 'package:smart_application/core/api_client.dart';
+import 'package:smart_application/core/services/native_sync_service.dart';
 
 class SyncDataScreen extends StatefulWidget {
   const SyncDataScreen({super.key});
@@ -75,7 +76,6 @@ class _SyncDataScreenState extends State<SyncDataScreen> {
   }
 
   Future<File> _getFile(String fileName) async {
-    final directory = await getExternalStorageDirectory();
     // محاكاة مسار Downloads كما في الجافا
     String path = "/storage/emulated/0/Download/$fileName";
     return File(path);
@@ -84,20 +84,12 @@ class _SyncDataScreenState extends State<SyncDataScreen> {
   Future<void> _syncItem(SyncDataItem item) async {
     setState(() => _isLoading = true);
     
-    String encryptedData = ApiClient.encryptRSA(item.rawData);
-    String result = "";
-    
-    if (item.type == "حركة وصل") {
-      result = await DirectCurrentService.probeConnTrans(encryptedData);
-    } else {
-      result = await DirectCurrentService.probeDisConnTrans(encryptedData);
-    }
+    // استدعاء نظام المزامنة الأصلي من الأندرويد
+    String result = await NativeSyncService.performNativeSync(
+      item.type == "حركة وصل" ? "connect" : "disconnect"
+    );
 
-    if (result == "تمت العملية بنجاح") {
-      // حذف الملف
-      final file = await _getFile(item.type == "حركة وصل" ? 'SyncData.txt' : 'SyncData2.txt');
-      if (await file.exists()) await file.delete();
-      
+    if (result.contains("نجاح")) {
       _showMsg("تمت المزامنة بنجاح", AppTheme.accentGreen);
       _loadOfflineData();
     } else {

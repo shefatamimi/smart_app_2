@@ -94,26 +94,63 @@ class _CreateDisconnectionScreenState extends State<CreateDisconnectionScreen> {
 
       if (mounted) {
         setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("نتيجة العملية: $result", textAlign: TextAlign.right),
-            backgroundColor: result.contains("نجاح") || result.contains("تم") ? AppTheme.accentGreen : AppTheme.accentRed,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        
         if (result.contains("نجاح") || result.contains("تم")) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("تمت العملية بنجاح", textAlign: TextAlign.right), backgroundColor: AppTheme.accentGreen),
+          );
           Navigator.pop(context);
+        } else {
+          _showOfflineSaveDialog(
+            "strMTR_NUM:${widget.meterInfo['display_meter']},intWorkshopID:${prefs.getString('SYS_MINOR')},strWorkshopName:${prefs.getString('SYS_DESC')},strOraUserName:${prefs.getString('ORACLE_USER')},CityId:${widget.meterInfo['MTR_CITY']},CustId:${widget.meterInfo['MTR_NUM']},DisconnKind:$_selectedKind,DisconnReason:$_selectedReason,strDisconnReson:${_notesController.text.trim()},Lat:32.556,Lng:35.845",
+            false,
+            result
+          );
         }
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("خطأ: $e"), backgroundColor: AppTheme.accentRed),
+        final prefs = await SharedPreferences.getInstance();
+        _showOfflineSaveDialog(
+          "strMTR_NUM:${widget.meterInfo['display_meter']},intWorkshopID:${prefs.getString('SYS_MINOR')},strWorkshopName:${prefs.getString('SYS_DESC')},strOraUserName:${prefs.getString('ORACLE_USER')},CityId:${widget.meterInfo['MTR_CITY']},CustId:${widget.meterInfo['MTR_NUM']},DisconnKind:$_selectedKind,DisconnReason:$_selectedReason,strDisconnReson:${_notesController.text.trim()},Lat:32.556,Lng:35.845",
+          false,
+          e.toString()
         );
       }
     }
   }
+
+  void _showOfflineSaveDialog(String rawData, bool isConnection, String error) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: const Text('فشل الاتصال بالسيرفر'),
+          content: Text('حدث خطأ: $error\n\nهل تريد حفظ الحركة محلياً للمزامنة لاحقاً؟'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentGreen, foregroundColor: Colors.white),
+              onPressed: () async {
+                Navigator.pop(ctx);
+                bool saved = await DirectCurrentService.saveOfflineTransaction(rawData, isConnection);
+                if (saved) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("تم حفظ الحركة محلياً بنجاح")));
+                  if (mounted) Navigator.pop(context);
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("فشل حفظ الحركة محلياً"), backgroundColor: AppTheme.accentRed));
+                }
+              },
+              child: const Text('حفظ محلياً'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
