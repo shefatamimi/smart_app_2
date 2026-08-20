@@ -39,6 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String _currentSearchId = "";
   String? _liveMeterState;
   bool _isCheckingState = false;
+  bool _isCheckingVoltage = false;
   bool _isProbeConnected = false; // تتبع حالة اقتران البروب
   BluetoothAdapterState _bluetoothState = BluetoothAdapterState.unknown;
   String? _lightingStatus; // تخزين حالة الإنارة المكتشفة
@@ -271,7 +272,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    setState(() => _isCheckingState = true);
+    setState(() => _isCheckingVoltage = true);
 
     try {
       final meterNo = _meterInfo!['display_meter'] ?? "";
@@ -279,7 +280,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (meterNo.isEmpty || meterNo == "---") throw "رقم العداد غير متوفر";
 
-      // الخطوة 1: التأكد من أن العداد Connected كما في الجافا
+      // الخطوة 1: التأكد من أن العداد Connected
       debugPrint(">>> VOLTAGE: STEP 1 - Checking State");
       final state = await MeterService.getMeterState(meterNo, kind);
       
@@ -293,8 +294,12 @@ class _HomeScreenState extends State<HomeScreen> {
       debugPrint(">>> VOLTAGE: STEP 2 - Requesting Voltage");
       final voltage = await MeterService.getMeterVoltage(meterNo);
 
+      if (voltage.startsWith("خطأ") || voltage.contains("فشل")) {
+        throw voltage;
+      }
+
       if (mounted) {
-        setState(() => _isCheckingState = false);
+        setState(() => _isCheckingVoltage = false);
         
         showDialog(
           context: context,
@@ -316,9 +321,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.1),
+                    color: Colors.orange.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(15),
-                    border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                    border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
                   ),
                   child: Text(
                     '$voltage فولت',
@@ -337,8 +342,9 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
     } catch (e) {
+      debugPrint(">>> VOLTAGE ERROR: $e");
       if (mounted) {
-        setState(() => _isCheckingState = false);
+        setState(() => _isCheckingVoltage = false);
         _showErrorSnackBar("$e");
       }
     }
@@ -898,7 +904,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               actions: [
                 IconButton(
-                  icon: const Icon(Icons.logout_rounded, color: Colors.white, size: 28),
+                  icon: const Icon(Icons.arrow_circle_left_outlined, color: Colors.white, size: 28),
                   onPressed: () => Navigator.pop(context),
                 ),
                 const SizedBox(width: 8),
@@ -970,18 +976,33 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 20),
 
                   _buildExpandablePanel(1, 'لوحة العدادات الذكية للتحكم عن بعد', Icons.settings_remote_rounded, [
-                    _buildFeatureAction(Icons.speed_rounded, 'القراءة الحالية', Colors.indigo),
+                    _buildFeatureAction(
+                      Icons.speed_rounded, 
+                      'القراءة الحالية', 
+                      Colors.indigo,
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('هذه الخدمة (القراءة الحالية) قيد التطوير حالياً', textAlign: TextAlign.right),
+                            backgroundColor: AppTheme.accentGreen,
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                    ),
                     _buildFeatureAction(
                       Icons.fact_check_outlined, 
                       'حالة العداد', 
                       Colors.indigo,
                       onTap: _handleCheckMeterState,
+                      isLoading: _isCheckingState,
                     ),
                     _buildFeatureAction(
                       Icons.electric_meter_outlined, 
                       'عرض الفولتية', 
                       Colors.indigo,
                       onTap: _handleCheckVoltage,
+                      isLoading: _isCheckingVoltage,
                     ),
                     _buildFeatureAction(
                       Icons.receipt_long_rounded, 
@@ -1394,30 +1415,40 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('نتيجة الاستعلام للرقم', style: TextStyle(color: AppTheme.textGrey, fontSize: 12)),
-                  const SizedBox(height: 4),
-                  Text(_currentSearchId, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: AppTheme.textDark)),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: _getLiveStateColor().withOpacity(0.1), 
-                  borderRadius: BorderRadius.circular(15)
-                ),
-                child: Row(
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    CircleAvatar(radius: 3, backgroundColor: _getLiveStateColor()),
-                    const SizedBox(width: 8),
-                    Text(
-                      _liveMeterState != null ? "($_liveMeterState)" : (_meterInfo?['state'] ?? 'غير متوفر'), 
-                      style: TextStyle(color: _getLiveStateColor(), fontSize: 12, fontWeight: FontWeight.bold)
-                    ),
+                    const Text('نتيجة الاستعلام للرقم', style: TextStyle(color: AppTheme.textGrey, fontSize: 12)),
+                    const SizedBox(height: 4),
+                    Text(_currentSearchId, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: AppTheme.textDark), overflow: TextOverflow.ellipsis),
                   ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _getLiveStateColor().withOpacity(0.1), 
+                    borderRadius: BorderRadius.circular(15)
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircleAvatar(radius: 3, backgroundColor: _getLiveStateColor()),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          _liveMeterState != null ? "($_liveMeterState)" : (_meterInfo?['state'] ?? 'غير متوفر'), 
+                          style: TextStyle(color: _getLiveStateColor(), fontSize: 11, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -1436,9 +1467,9 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildModernStatBadge(Icons.memory_rounded, _meterInfo?['display_smart'] ?? 'غير متوفر', 'نوع العداد'),
-              _buildModernStatBadge(Icons.bolt_rounded, _meterInfo?['display_faz'] ?? 'غير متوفر', 'المرحلة'),
-              _buildModernStatBadge(Icons.location_on_outlined, _meterInfo?['display_area'] ?? 'إربد', 'المنطقة'),
+              Expanded(child: _buildModernStatBadge(Icons.memory_rounded, _meterInfo?['display_smart'] ?? 'غير متوفر', 'نوع العداد')),
+              Expanded(child: _buildModernStatBadge(Icons.bolt_rounded, _meterInfo?['display_faz'] ?? 'غير متوفر', 'المرحلة')),
+              Expanded(child: _buildModernStatBadge(Icons.location_on_outlined, _meterInfo?['display_area'] ?? 'إربد', 'المنطقة')),
             ],
           ),
           const SizedBox(height: 25),
@@ -1591,10 +1622,13 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildModernStatBadge(IconData icon, String value, String label) {
     return Column(
       children: [
-        Icon(icon, size: 22, color: AppTheme.secondaryBlue.withOpacity(0.7)),
+        Icon(icon, size: 22, color: AppTheme.secondaryBlue.withValues(alpha: 0.7)),
         const SizedBox(height: 8),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.textDark)),
-        Text(label, style: const TextStyle(color: AppTheme.textGrey, fontSize: 11)),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textDark))
+        ),
+        Text(label, style: const TextStyle(color: AppTheme.textGrey, fontSize: 10), textAlign: TextAlign.center),
       ],
     );
   }
@@ -1699,7 +1733,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildFeatureAction(IconData icon, String label, Color color, {VoidCallback? onTap}) {
+  Widget _buildFeatureAction(IconData icon, String label, Color color, {VoidCallback? onTap, bool isLoading = false}) {
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.surfaceWhite,
@@ -1711,7 +1745,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onTap ?? () {},
+          onTap: isLoading ? null : (onTap ?? () {}),
           borderRadius: BorderRadius.circular(22),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -1722,7 +1756,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: color.withOpacity(0.08),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, color: color, size: 25),
+                child: isLoading 
+                  ? const SizedBox(width: 25, height: 25, child: CircularProgressIndicator(strokeWidth: 2))
+                  : Icon(icon, color: color, size: 25),
               ),
               const SizedBox(height: 8),
               Padding(

@@ -168,9 +168,12 @@ class MeterService {
     try {
       final prefs = await SharedPreferences.getInstance();
       String oracleUser = prefs.getString('ORACLE_USER') ?? "";
+      
+      // رقم العداد بدون أول حرفين كما في CheckMeter(meterNo.substring(2))
+      String mNum = meterNo.length > 2 ? meterNo.substring(2) : meterNo;
 
       // بناء جملة الاستعلام تماماً كما في الجافا
-      String data = "meterNo:$meterNo,meterType:$kind,DataType:2,MtrStatus:'',tranType:6,orcUser:$oracleUser";
+      String data = "meterNo:$mNum,meterType:$kind,DataType:2,MtrStatus:'',tranType:6,orcUser:$oracleUser";
 
       debugPrint(">>> METER STATE DATA: $data");
 
@@ -215,11 +218,12 @@ class MeterService {
       // رقم العداد بدون أول حرفين كما في متطلبات سيرفر IDECO
       String mNum = meterNo.length > 2 ? meterNo.substring(2) : meterNo;
 
-      // بناء نص الطلب:
-      // type:1 (غالباً للقراءة اللحظية)
-      // OBISCode: 32.7.0 هو الكود العالمي الموحد لفولتية الفاز الأول (L1 Voltage)
-      // value: 0 قيمة ابتدائية
-      String data = "type:1,meterNo:$mNum,OBISCode:32.7.0,value:0";
+      // بناء نص الطلب بناءً على الكود المذكور في MeterVoltage.java
+      // OBIS Code الافتراضي كما هو في الكود الأصلي
+      String obisCode = "0100010800FF";
+      
+      // التنسيق المتوقع للبيانات: type:1,meterNo:...,OBISCode:...,value:0
+      String data = "type:1,meterNo:$mNum,OBISCode:$obisCode,value:0";
 
       debugPrint(">>> GET VOLTAGE DATA: $data");
 
