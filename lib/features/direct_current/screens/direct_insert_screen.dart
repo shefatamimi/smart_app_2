@@ -151,10 +151,15 @@ class _DirectInsertScreenState extends State<DirectInsertScreen> {
                   child: DropdownButton<String>(
                     value: _engineers.any((e) => e['id'] == _selectedEngineerId) ? _selectedEngineerId : null,
                     isExpanded: true,
-                    hint: const Text("اختر المهندس"),
+                    alignment: Alignment.centerRight,
+                    hint: const Align(
+                      alignment: Alignment.centerRight,
+                      child: Text("اختر المهندس"),
+                    ),
                     items: _engineers.map((e) => DropdownMenuItem(
                       value: e['id'],
-                      child: Text(e['name'] ?? ""),
+                      alignment: Alignment.centerRight,
+                      child: Text(e['name'] ?? "", textAlign: TextAlign.right),
                     )).toList(),
                     onChanged: (val) {
                       setState(() {
@@ -179,10 +184,15 @@ class _DirectInsertScreenState extends State<DirectInsertScreen> {
                   child: DropdownButton<String>(
                     value: _reasons.any((r) => r['name'] == _selectedReason) ? _selectedReason : null,
                     isExpanded: true,
-                    hint: const Text("اختر السبب"),
+                    alignment: Alignment.centerRight,
+                    hint: const Align(
+                      alignment: Alignment.centerRight,
+                      child: Text("اختر السبب"),
+                    ),
                     items: _reasons.map((r) => DropdownMenuItem(
                       value: r['name'],
-                      child: Text(r['name'] ?? ""),
+                      alignment: Alignment.centerRight,
+                      child: Text(r['name'] ?? "", textAlign: TextAlign.right),
                     )).toList(),
                     onChanged: (val) => setState(() => _selectedReason = val),
                   ),

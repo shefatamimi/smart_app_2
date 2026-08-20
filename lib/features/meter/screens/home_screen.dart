@@ -14,6 +14,7 @@ import 'package:smart_application/features/direct_current/services/direct_curren
 import 'package:smart_application/features/direct_current/screens/create_disconnection_screen.dart';
 import 'package:smart_application/features/direct_current/screens/direct_insert_screen.dart';
 import 'package:smart_application/features/direct_current/screens/create_transaction_screen.dart';
+import 'package:smart_application/features/auth/screens/login_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -130,6 +131,18 @@ class _HomeScreenState extends State<HomeScreen> {
         _subscriberController.clear();
       });
       _handleSearch();
+    }
+  }
+
+  void _handleLogout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear(); // مسح بيانات الدخول
+    if (mounted) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+        (route) => false,
+      );
     }
   }
 
@@ -905,7 +918,7 @@ class _HomeScreenState extends State<HomeScreen> {
               actions: [
                 IconButton(
                   icon: const Icon(Icons.arrow_circle_left_outlined, color: Colors.white, size: 28),
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: _handleLogout,
                 ),
                 const SizedBox(width: 8),
               ],
@@ -1337,7 +1350,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Icons.logout_rounded, 
                       'تسجيل الخروج', 
                       AppTheme.accentRed,
-                      onTap: () => Navigator.pop(context),
+                      onTap: _handleLogout,
                     ),
                   ], crossAxisCount: 2),
 
