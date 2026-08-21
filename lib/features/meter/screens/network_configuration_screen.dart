@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:smart_application/core/theme/app_theme.dart';
+import 'package:smart_application/features/meter/services/gprs_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 class NetworkConfigurationScreen extends StatefulWidget {
   const NetworkConfigurationScreen({super.key});
@@ -16,6 +19,10 @@ class _NetworkConfigurationScreenState extends State<NetworkConfigurationScreen>
   String? _selectedConfig = 'إختر إعداد مسبق';
   bool _isReading = false;
   bool _isSaving = false;
+  
+  // تتبع حالة البلوتوث والاقتران بالبروب
+  bool _isProbeConnected = false;
+  BluetoothAdapterState _bluetoothState = BluetoothAdapterState.unknown;
 
   // قائمة الإعدادات المسبقة كما في الجافا
   final List<String> _presets = [
@@ -29,24 +36,61 @@ class _NetworkConfigurationScreenState extends State<NetworkConfigurationScreen>
   @override
   void initState() {
     super.initState();
-    // محاكاة جلب الإعدادات الحالية عند الفتح (pos = 1 في الجافا)
+    _checkInitialProbeStatus();
     _readCurrentConfiguration();
   }
 
+  void _checkInitialProbeStatus() async {
+    // محاكاة التحقق من اقتران البروب كما في HomeScreen
+    // في الواقع يتم مراقبة حالة البلوتوث الحقيقية
+    FlutterBluePlus.adapterState.listen((state) {
+      if (mounted) setState(() => _bluetoothState = state);
+    });
+    
+    // لغايات العرض، سنفترض اقتران البروب إذا كان البلوتوث مفعل
+    if (_bluetoothState == BluetoothAdapterState.on) {
+      setState(() => _isProbeConnected = true);
+    }
+  }
+
   void _readCurrentConfiguration() async {
+    if (_bluetoothState != BluetoothAdapterState.on) {
+      _showSnackBar('البلوتوث مغلق. يرجى تفعيله والاقتران بالبروب', AppTheme.accentRed);
+      return;
+    }
+
     setState(() => _isReading = true);
     
-    // محاكاة الاتصال بالبروب والقراءة
-    await Future.delayed(const Duration(seconds: 2));
-    
-    if (mounted) {
-      setState(() {
-        _ipController.text = "10.10.20.50";
-        _portController.text = "4040";
-        _apnController.text = "ideco.m2m";
-        _isReading = false;
-      });
-      _showSnackBar('تمت قراءة إعدادات العداد الحالية', AppTheme.accentGreen);
+    try {
+      // 1. استدعاء الخدمة الحقيقية للقراءة عبر البروب
+      // ملاحظة: سنستخدم عناوين وهمية للاقتران هنا، في الواقع يجب اختيار الجهاز من قائمة البلوتوث
+      final result = await GPRSService.readNetworkConfig(
+        bluetoothAddress: "00:11:22:33:44:55",
+        bluetoothName: "BSC-Probe-01",
+      );
+
+      if (mounted) {
+        if (result.contains("ERROR") || result == "TIMEOUT") {
+          _showSnackBar('فشل الاتصال بالعداد. تأكد من وضع البروب بشكل صحيح', AppTheme.accentRed);
+        } else {
+          // تحليل الرد (IP:Port:APN)
+          final parts = result.split(":");
+          if (parts.length >= 3) {
+            setState(() {
+              _ipController.text = parts[0];
+              _portController.text = parts[1];
+              _apnController.text = parts[2];
+            });
+            _showSnackBar('تمت قراءة إعدادات العداد بنجاح', AppTheme.accentGreen);
+          }
+        }
+        setState(() => _isReading = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isReading = false);
+        _showSnackBar('خطأ في القراءة: $e', AppTheme.accentRed);
+      }
     }
   }
 
@@ -58,13 +102,28 @@ class _NetworkConfigurationScreenState extends State<NetworkConfigurationScreen>
 
     setState(() => _isSaving = true);
 
-    // محاكاة عملية البرمجة (SetDlmsMeterNetwork)
-    await Future.delayed(const Duration(seconds: 3));
+    try {
+      final result = await GPRSService.writeNetworkConfig(
+        bluetoothAddress: "00:11:22:33:44:55",
+        bluetoothName: "BSC-Probe-01",
+        ip: _ipController.text,
+        port: _portController.text,
+        apn: _apnController.text,
+      );
 
-    if (mounted) {
-      setState(() => _isSaving = false);
-      _showSnackBar('تمت برمجة شبكة العداد بنجاح', AppTheme.accentGreen);
-      // Navigator.pop(context);
+      if (mounted) {
+        setState(() => _isSaving = false);
+        if (result.contains("بنجاح")) {
+          _showSnackBar(result, AppTheme.accentGreen);
+        } else {
+          _showSnackBar(result, AppTheme.accentRed);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        _showSnackBar('خطأ في البرمجة: $e', AppTheme.accentRed);
+      }
     }
   }
 

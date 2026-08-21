@@ -61,4 +61,45 @@ class GPRSService {
       return "Error: $e";
     }
   }
+
+  /// قراءة إعدادات الشبكة الحالية من العداد عبر البروب
+  static Future<String> readNetworkConfig({
+    required String bluetoothAddress,
+    required String bluetoothName,
+  }) async {
+    try {
+      final String result = await _channel.invokeMethod('readNetworkConfig', {
+        'address': bluetoothAddress,
+        'name': bluetoothName,
+      });
+      return result;
+    } on PlatformException catch (e) {
+      return "ERROR: ${e.message}";
+    } catch (e) {
+      return "ERROR: $e";
+    }
+  }
+
+  /// كتابة (برمجة) إعدادات الشبكة الجديدة للعداد عبر البروب
+  static Future<String> writeNetworkConfig({
+    required String bluetoothAddress,
+    required String bluetoothName,
+    required String ip,
+    required String port,
+    required String apn,
+  }) async {
+    try {
+      final String configString = "$ip:$port:$apn";
+      final String result = await _channel.invokeMethod('writeNetworkConfig', {
+        'address': bluetoothAddress,
+        'name': bluetoothName,
+        'config': configString,
+      });
+      return result;
+    } on PlatformException catch (e) {
+      return "ERROR: ${e.message}";
+    } catch (e) {
+      return "ERROR: $e";
+    }
+  }
 }

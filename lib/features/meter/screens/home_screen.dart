@@ -810,6 +810,125 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _handleRemoteConnection() async {
+    if (_meterInfo == null) {
+      _showErrorSnackBar("يرجى الاستعلام عن عداد أولاً");
+      return;
+    }
+
+    final meterNo = _meterInfo!['display_meter'] ?? "";
+    final kind = _meterInfo!['MTR_KIND'] ?? "";
+    final currentState = _liveMeterState ?? _meterInfo!['state'] ?? "";
+
+    // التحقق من أن العداد مفصول قبل محاولة الوصل كما في الجافا
+    if (!currentState.toLowerCase().contains("disconnected")) {
+      _showErrorSnackBar("العداد ليس في حالة فصل (الحالة الحالية: $currentState)");
+      return;
+    }
+
+    bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('تأكيد وصل عن بعد', textAlign: TextAlign.right),
+        content: const Text('سوف يتم وصل العداد عن بعد بدون حركة، هل تريد تأكيد العملية؟', textAlign: TextAlign.right),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentGreen),
+            child: const Text('تأكيد الوصل', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _isCheckingState = true);
+    try {
+      final result = await MeterService.remoteConnection(meterNo, kind);
+      
+      if (mounted) {
+        setState(() {
+          _isCheckingState = false;
+          if (result.contains("نجاح") || result.contains("تم")) {
+            _liveMeterState = "Connected";
+          }
+        });
+        _showSuccessSnackBar(result);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isCheckingState = false);
+        _showErrorSnackBar("فشل الوصل عن بعد: $e");
+      }
+    }
+  }
+
+  void _handleRemoteConnectionWithMovement() async {
+    if (_meterInfo == null) {
+      _showErrorSnackBar("يرجى الاستعلام عن عداد أولاً");
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final workshopId = prefs.getString('SYS_MINOR') ?? "";
+    final workshopName = prefs.getString('SYS_DESC') ?? "";
+
+    if (workshopId.isEmpty) {
+      _showErrorSnackBar("يرجى ضبط رقم الورشة من الإعدادات أولاً");
+      return;
+    }
+
+    bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('وصل عن بعد مع حركة', textAlign: TextAlign.right),
+        content: const Text('هل تريد تأكيد وصل العداد عن بعد مع تسجيل حركة ورشات؟', textAlign: TextAlign.right),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryBlue),
+            child: const Text('تأكيد وإرسال', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _isCheckingState = true);
+    try {
+      // استخدام إحداثيات افتراضية كما في الجافا إذا لم يتوفر GPS
+      // في الجافا يتم استخدام MainActivity.myLoc.getLatitude()
+      final result = await MeterService.remoteConnectionWithMovement(
+        meterNo: _meterInfo!['display_meter'] ?? "",
+        workshopId: workshopId,
+        workshopName: workshopName,
+        cityId: _meterInfo!['MTR_CITY'] ?? "",
+        custId: _meterInfo!['MTR_NUM'] ?? "",
+        lat: 0.0,
+        lng: 0.0,
+      );
+
+      if (mounted) {
+        setState(() {
+          _isCheckingState = false;
+          if (result.contains("نجاح") || result.contains("تم")) {
+            _liveMeterState = "Connected";
+          }
+        });
+        _showSuccessSnackBar(result);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isCheckingState = false);
+        _showErrorSnackBar("فشل الوصل مع الحركة: $e");
+      }
+    }
+  }
+
   void _showSuccessSnackBar(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -1166,7 +1285,13 @@ class _HomeScreenState extends State<HomeScreen> {
                         }
                       },
                     ),
-                    _buildFeatureAction(Icons.online_prediction_rounded, 'وصل عن بعد', Colors.indigo),
+                    _buildFeatureAction(
+                      Icons.online_prediction_rounded, 
+                      'وصل عن بعد', 
+                      Colors.indigo,
+                      onTap: _handleRemoteConnection,
+                      isLoading: _isCheckingState,
+                    ),
                   ], crossAxisCount: 3),
 
                   const SizedBox(height: 20),
@@ -1194,7 +1319,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       Colors.teal,
                       onTap: _isProbeConnected ? _handleCheckMeterState : () => _showErrorSnackBar("يرجى الاقتران بالبروب أولاً"),
                     ),
-                    _buildFeatureAction(Icons.link, 'وصل مع حركة', Colors.teal),
+                    _buildFeatureAction(
+                      Icons.link, 
+                      'وصل مع حركة', 
+                      Colors.teal,
+                      onTap: _handleRemoteConnectionWithMovement,
+                      isLoading: _isCheckingState,
+                    ),
                     _buildFeatureAction(Icons.link_off, 'فصل مع حركة', Colors.teal),
                     _buildFeatureAction(
                       Icons.settings_input_component, 

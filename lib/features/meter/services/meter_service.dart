@@ -332,6 +332,87 @@ class MeterService {
     }
   }
 
+  /// الوصل عن بعد (بدون حركة) - يدعم عدادات Holley و Hexing
+  static Future<String> remoteConnection(String meterNo, String kind) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      String oracleUser = prefs.getString('ORACLE_USER') ?? "";
+      
+      // التنسيق المتوقع: strMTR_NUM:...,strOraUserName:...
+      String data = "strMTR_NUM:$meterNo,strOraUserName:$oracleUser";
+      
+      debugPrint(">>> REMOTE CONNECTION DATA: $data | Kind: $kind");
+
+      // اختيار الدالة بناءً على نوع العداد كما في الجافا
+      String methodName = "RemoteConnection"; // الافتراضي لـ Holley
+      if (kind.toUpperCase().startsWith("HEX")) {
+        methodName = "RemoteConnectionHex";
+      }
+
+      String response = await ApiClient.makeSoapRequest(
+        AppConstants.baseUrl, 
+        methodName, 
+        ApiClient.encryptRSA(data)
+      );
+
+      final document = xml.XmlDocument.parse(response);
+      final result = document.descendants
+          .whereType<xml.XmlElement>()
+          .where((e) => e.name.local.toLowerCase() == "${methodName.toLowerCase()}result")
+          .firstOrNull;
+      
+      return result?.innerText ?? "تم إرسال أمر الوصل بنجاح";
+    } catch (e) {
+      debugPrint("REMOTE CONNECTION ERROR: $e");
+      return "خطأ في الاتصال: $e";
+    }
+  }
+
+  /// الوصل عن بعد مع تسجيل حركة (مع إحداثيات الموقع)
+  static Future<String> remoteConnectionWithMovement({
+    required String meterNo,
+    required String workshopId,
+    required String workshopName,
+    required String cityId,
+    required String custId,
+    required double lat,
+    required double lng,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      String oracleUser = prefs.getString('ORACLE_USER') ?? "";
+      
+      // التنسيق: strMTR_NUM:...,intWorkshopID:...,strWorkshopName:...,Lat:...,Lng:...,strOraUserName:...,CityId:...,CustId:...
+      String data = "strMTR_NUM:$meterNo,"
+          "intWorkshopID:$workshopId,"
+          "strWorkshopName:$workshopName,"
+          "Lat:$lat,"
+          "Lng:$lng,"
+          "strOraUserName:$oracleUser,"
+          "CityId:$cityId,"
+          "CustId:$custId";
+      
+      debugPrint(">>> REMOTE CONNECTION WITH MOVEMENT DATA: $data");
+
+      String response = await ApiClient.makeSoapRequest(
+        AppConstants.baseUrl, 
+        "RemoteConnectionWithConnTrans", 
+        ApiClient.encryptRSA(data)
+      );
+
+      final document = xml.XmlDocument.parse(response);
+      final result = document.descendants
+          .whereType<xml.XmlElement>()
+          .where((e) => e.name.local.toLowerCase() == "remoteconnectionwithconntransresult")
+          .firstOrNull;
+      
+      return result?.innerText ?? "تم تنفيذ الوصل مع الحركة بنجاح";
+    } catch (e) {
+      debugPrint("REMOTE CONN MOVEMENT ERROR: $e");
+      return "خطأ: $e";
+    }
+  }
+
   /// توثيق تغيير أوضاع العداد (مثل تفعيل/إلغاء الإنارة) في السيرفر
   static Future<String> recordModeLog(int type, String meterNo) async {
     try {
